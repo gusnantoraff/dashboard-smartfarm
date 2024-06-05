@@ -1,18 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindManyOptions, In, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
+import { Role } from 'src/roles/roles.enum';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-  ) {}
+  ) { }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     const user = this.userRepository.create(createUserDto);
@@ -20,6 +21,7 @@ export class UserService {
       user.user_id = uuidv4();
     }
     user.password = await bcrypt.hash(user.password, 10);
+    user.role = createUserDto.role || [Role.USER];
     return await this.userRepository.save(user);
   }
 
@@ -44,7 +46,7 @@ export class UserService {
   async remove(id: string): Promise<void> {
     const user = await this.findOne(id);
     await this.userRepository.remove(user);
-    
+
   }
 
   // LOGIN
@@ -59,4 +61,14 @@ export class UserService {
   async findByResetToken(token: string): Promise<User | undefined> {
     return this.userRepository.findOne({ where: { forgot_token: token } });
   }
+
+  async findUsersByRole(role: Role): Promise<User[]> {
+    const options: FindManyOptions<User> = {
+        where: {
+            role: role
+        }
+    };
+    return this.userRepository.find(options);
+}
+
 }

@@ -9,6 +9,8 @@ import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
+import { ControllerModule } from './controller/controller.module';
+import { TemplateControllerModule } from './template_controller/template_controller.module';
 
 @Module({
   imports: [
@@ -28,9 +30,12 @@ import { AuthModule } from './auth/auth.module';
         entities: [join(process.cwd(), 'dist/**/*.entity.js')],
       }),
     }),
+    OpenaiModule,
     ClusterModule,
     UserModule,
     AuthModule,
+    ControllerModule,
+    TemplateControllerModule,
   ],
   controllers: [AppController],
   providers: [AppService],

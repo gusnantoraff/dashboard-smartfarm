@@ -5,6 +5,9 @@ import { Cluster } from './entities/cluster.entity';
 import { CreateClusterDto } from './dto/create-cluster.dto';
 import { UpdateClusterDto } from './dto/update-cluster.dto';
 import { v4 as uuidv4 } from 'uuid';
+import { PageDto } from 'src/dto/page.dto';
+import { PageMetaDto } from 'src/dto/page-meta.dto';
+import { PageOptionsDto } from 'src/dto/page-options.dto';
 
 @Injectable()
 export class ClusterService {
@@ -21,8 +24,25 @@ export class ClusterService {
     return await this.clusterRepository.save(cluster);
   }
 
-  async findAll(): Promise<Cluster[]> {
-    return await this.clusterRepository.find();
+  async getAllClusters(): Promise<Cluster[]> {
+    return this.clusterRepository.find();
+  }
+
+  public async getClusters(
+    pageOptionsDto: PageOptionsDto,
+  ): Promise<PageDto<Cluster>> {
+    const queryBuilder = this.clusterRepository.createQueryBuilder('cluster');
+
+    queryBuilder
+      .skip(pageOptionsDto.skip)
+      .take(pageOptionsDto.take);
+
+    const itemCount = await queryBuilder.getCount();
+    const entities = await queryBuilder.getMany();
+
+    const pageMetaDto = new PageMetaDto({ itemCount, pageOptionsDto });
+
+    return new PageDto(entities, pageMetaDto);
   }
 
   async getClusterById(id: string): Promise<Cluster> {
@@ -47,5 +67,4 @@ export class ClusterService {
     }
     return `Cluster dengan ID ${id} telah terhapus`;
   }
-  
 }

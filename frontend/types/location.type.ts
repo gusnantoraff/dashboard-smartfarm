@@ -19,5 +19,5 @@ export interface Address {
   municipality: string;
   postcode: string;
   state: string;
-  village: string;
+  town: string;
 }

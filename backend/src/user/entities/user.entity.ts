@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Role } from 'src/roles/roles.enum';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity({ name: 'user' })
 export class User {
@@ -17,8 +18,8 @@ export class User {
   @Column({ type: 'varchar', length: 255 })
   password: string;
 
-  @Column({ type: 'text', default: 'user' })
-  role: string;
+  @Column({ type: 'simple-array'})
+  role: Role[];
 
   @Column({ type: 'text', nullable: true })
   forgot_token: string;

@@ -1,19 +1,15 @@
-import { Body, Controller, HttpCode, Post } from '@nestjs/common';
-import OpenAI from 'openai';
+import { Controller, Post, Body } from '@nestjs/common';
+import { OpenAiService } from './openai.service';
 
-import { IChatRequest, IChatResponse } from './interfaces/chat.interface';
-import { OpenaiService } from './openai.service';
 
-@Controller('openai')
-export class OpenaiController {
-  constructor(private openaiService: OpenaiService) {}
+@Controller('generate-ai')
+export class OpenAIController {
+  constructor(private readonly openAiService: OpenAiService) {}
 
-  @Post('/chat')
-  @HttpCode(200)
-  async getChatOpenai(@Body() request: IChatRequest): Promise<IChatResponse> {
-    const getMessages = (await this.openaiService.getMessagesData(
-      request,
-    )) as OpenAI.ChatCompletion;
-    return this.openaiService.getChatOpenaiResponse(getMessages);
+  @Post()
+  async generate(@Body() body: { plantName: string; typePlant: string; dap: number }) {
+    const { plantName, typePlant, dap } = body;
+    const recommendations = await this.openAiService.generateRecommendations(plantName, typePlant, dap);
+    return { recommendations };
   }
 }

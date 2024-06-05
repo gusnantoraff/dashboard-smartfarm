@@ -17,7 +17,7 @@ export class AuthService {
 
     const token = this.generateAccessToken(user.user_id);
 
-    return { user, token };
+    return { ...user, token };
   }
 
   public async validateCredentials(email: string, password: string) {
@@ -34,8 +34,9 @@ export class AuthService {
     return user;
   }
 
-  public generateAccessToken(userId: string) {
-    return this.jwtService.sign({ userId });
+  public generateAccessToken(user: any) {
+    const { user_id, role } = user;
+    return this.jwtService.sign({ userId: user_id, role });
   }
 
   async forgotPassword(email: string) {
@@ -82,10 +83,10 @@ export class AuthService {
       to: email,
       subject: 'Reset Password',
       html: `
-          <p>Please click the button below to reset your password.</p>
-          <p><a href="http://localhost:3000/reset-password?token=${resetToken}">
-              <button style="background-color:#4CAF50; border:none; color:white; padding:10px 20px; text-align:center; text-decoration:none; display:inline-block; font-size:16px; cursor:pointer; border-radius:5px;">Reset Password</button>
-          </a></p>
+      <p>Please click the button below to reset your password.</p>
+      <p><a href="http://localhost:3000/reset-password?token=${resetToken}">
+          <button style="background-color:#4CAF50; border:none; color:white; padding:10px 20px; text-align:center; text-decoration:none; display:inline-block; font-size:16px; cursor:pointer; border-radius:5px;">Reset Password</button>
+      </a></p>
       `
     };
 

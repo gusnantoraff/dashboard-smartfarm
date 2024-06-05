@@ -1,9 +1,10 @@
 /* eslint-disable prettier/prettier */
-import { Controller, Get, Post, Put, Delete, Body, Param, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, NotFoundException, Query} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User } from './entities/user.entity';
+import { Role } from 'src/roles/roles.enum';
 
 @Controller('users')
 export class UserController {
@@ -15,7 +16,10 @@ export class UserController {
   }
 
   @Get()
-  async findAll(): Promise<User[]> {
+  async findAll(@Query('role') role?: Role): Promise<User[]> {
+    if (role) {
+      return this.userService.findUsersByRole(role);
+    }
     return this.userService.findAll();
   }
 

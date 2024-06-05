@@ -7,16 +7,14 @@ import FormItem from '@/components/FormItem';
 import Link from '@/components/Link';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-
-
+import useLocalStorage from '@/hooks/useLocalStorage';
 
 const Login: React.FC = () => {
   const router = useRouter();
   const [error, setError] = useState<string>('');
+  const { setItem } = useLocalStorage('user');
 
   const handleSubmit = async ({ email, password }: { email: string; password: string }) => {
-    setError('');
-
     try {
       const response = await fetch('http://localhost:4000/login', {
         method: 'POST',
@@ -25,6 +23,8 @@ const Login: React.FC = () => {
       });
 
       if (response.ok) {
+        const userData = await response.json();
+        setItem(JSON.stringify(userData.user));
         router.push('/dashboard');
       } else if (response.status === 401) {
         setError('Invalid email or password');
@@ -37,6 +37,7 @@ const Login: React.FC = () => {
       setError('An unexpected error occurred');
     }
   };
+  
 
   return (
     <>
