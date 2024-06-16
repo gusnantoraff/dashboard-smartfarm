@@ -4,18 +4,18 @@ import { Dictionary } from './DictionaryType';
 import { Location } from './location.type';
 
 export interface DetailController extends Time {
-  id: string;
+  controller_id: string;
   name: string;
-  isActive: boolean;
-  templateId: string;
-  templates: TemplateECDap;
-  clusters: Cluster;
+  is_active: boolean;
+  template_id: string;
+  template: TemplateECDap;
+  cluster: Cluster;
   configs: ConfigSensor;
   controllerSessions: ControllerSession[];
 }
 
 export interface ControllerSession extends Time {
-  id: string;
+  controller_session_id: string;
   clusterId: string;
   dapFirstDateTime: string;
   dapFirstEndTime: string;
@@ -23,7 +23,7 @@ export interface ControllerSession extends Time {
 }
 
 export interface ConfigSensor extends Time {
-  id: string;
+  config_sensor_id: string;
   controllerId: string;
   phUp: number;
   humidity: number;
@@ -39,17 +39,17 @@ export interface ConfigSensor extends Time {
 }
 
 export interface DetailCluster extends Time {
-  id: string;
+  cluster_id: string;
   name: string;
   latitude: number;
   longitude: number;
-  timeZone: string;
+  timezone: string;
   memberships: Memberships[];
   controllers: DetailController[];
 }
 
 export interface TemplateECDap extends Time {
-  id: string;
+  template_id: string;
   configEcDap: number[];
   name: string;
   dapCount: number;
@@ -67,7 +67,7 @@ export type PaginationInput = {
 };
 
 export interface Memberships extends Time {
-  id: string;
+  membership_id: string;
   isActive: boolean;
   userId: string;
   clusterId: string;
@@ -78,7 +78,7 @@ export interface Memberships extends Time {
 }
 
 export interface Cluster extends Time {
-  id: string;
+  cluster_id: string;
   name: string;
   timeZone: string;
   latitude: number;
@@ -88,7 +88,7 @@ export interface Cluster extends Time {
 }
 
 export interface VoidPermission extends Time {
-  id: string;
+  void_permission_id: string;
   type: string;
   action: string;
   membershipId: string;
@@ -118,7 +118,7 @@ export type MqttPayloadType = {
   controller_status: boolean;
   dap: number[];
   dap_date: string;
-  dap_days: number;
+  dap_count: number;
   dap_time: string;
   date_now: string;
   ec: number;

@@ -11,6 +11,10 @@ import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { ControllerModule } from './controller/controller.module';
 import { TemplateControllerModule } from './template_controller/template_controller.module';
+import { LogControllerModule } from './log-controller/log-controller.module';
+import { ManagementControllerModule } from './management-controller/management-controller.module';
+import { MembershipModule } from './membership/membership.module';
+import { VoidPermissionModule } from './void-permission/void-permission.module';
 
 @Module({
   imports: [
@@ -28,6 +32,7 @@ import { TemplateControllerModule } from './template_controller/template_control
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_NAME'),
         entities: [join(process.cwd(), 'dist/**/*.entity.js')],
+        synchronize: true
       }),
     }),
     OpenaiModule,
@@ -36,6 +41,10 @@ import { TemplateControllerModule } from './template_controller/template_control
     AuthModule,
     ControllerModule,
     TemplateControllerModule,
+    LogControllerModule,
+    ManagementControllerModule,
+    MembershipModule,
+    VoidPermissionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

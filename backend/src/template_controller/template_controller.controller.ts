@@ -20,6 +20,11 @@ export class TemplateController {
     return this.templateService.findAll();
   }
 
+  @Get('all/:id')
+  async getAllTemplateById(@Param('id') id: string): Promise<Template> {
+    return this.templateService.findOne(id);
+  }
+
   @Get()
   @HttpCode(HttpStatus.OK)
   async getTemplates(
@@ -31,6 +36,11 @@ export class TemplateController {
   @Get(':id')
   async getTemplateById(@Param('id') id: string): Promise<Template> {
     return this.templateService.findOne(id);
+  }
+
+  @Get('details/:id')
+  async getTemplateDetails(@Param('id') id: string): Promise<any> {
+    return this.templateService.getTemplateDetails(id);
   }
 
   @Put(':id')

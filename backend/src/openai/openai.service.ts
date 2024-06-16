@@ -8,9 +8,9 @@ export interface Recommendations {
   ec: number | null;
   ph: number | null;
   humidity: number | null;
-  air_temperature: number | null;
-  water_temperature: number | null;
-  waterflow: number | null;
+  temperature_air: number | null;
+  temperature_water: number | null;
+  water_flow: number | null;
 }
 
 @Injectable()
@@ -52,9 +52,9 @@ export class OpenAiService {
       ec: null,
       ph: null,
       humidity: null,
-      air_temperature: null,
-      water_temperature: null,
-      waterflow: null,
+      temperature_air: null,
+      temperature_water: null,
+      water_flow: null,
     };
 
     const ecMatch = recommendationsText.match(/EC.*?:.*?(\d+(\.\d+)?)(\s*dS\/m)/i);
@@ -74,13 +74,13 @@ export class OpenAiService {
       recommendations.humidity = parseFloat(humidityMatch[1].replace('%', ''));
     }
     if (airTempMatch) {
-      recommendations.air_temperature = parseFloat(airTempMatch[1].replace('°C', '').replace('degrees Celsius', ''));
+      recommendations.temperature_air = parseFloat(airTempMatch[1].replace('°C', '').replace('degrees Celsius', ''));
     }
     if (waterTempMatch) {
-      recommendations.water_temperature = parseFloat(waterTempMatch[1].replace('°C', '').replace('degrees Celsius', ''));
+      recommendations.temperature_water = parseFloat(waterTempMatch[1].replace('°C', '').replace('degrees Celsius', ''));
     }
     if (waterflowMatch) {
-      recommendations.waterflow = parseFloat(waterflowMatch[1]);
+      recommendations.water_flow = parseFloat(waterflowMatch[1]);
     }
 
     return recommendations as Recommendations;

@@ -1,26 +1,40 @@
 import { Injectable } from '@nestjs/common';
-import { CreateConfigEcDapDto } from './dto/create-config-ec-dap.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ConfigEcDap } from './entities/config-ec-dap.entity';
+import { CreateConfigEcDapDto} from './dto/create-config-ec-dap.dto';
 import { UpdateConfigEcDapDto } from './dto/update-config-ec-dap.dto';
 
 @Injectable()
 export class ConfigEcDapService {
-  create(createConfigEcDapDto: CreateConfigEcDapDto) {
-    return 'This action adds a new configEcDap';
+  constructor(
+    @InjectRepository(ConfigEcDap)
+    private readonly configEcDapRepository: Repository<ConfigEcDap>,
+  ) {}
+
+  async findAll(): Promise<ConfigEcDap[]> {
+    return this.configEcDapRepository.find();
   }
 
-  findAll() {
-    return `This action returns all configEcDap`;
+  async findOne(id: string): Promise<ConfigEcDap> {
+    return this.configEcDapRepository.findOne({ where: { config_ec_dap_id:id } });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} configEcDap`;
+  async create(createConfigEcDapDto: CreateConfigEcDapDto): Promise<ConfigEcDap> {
+    const configEcDap = this.configEcDapRepository.create(createConfigEcDapDto);
+    return this.configEcDapRepository.save(configEcDap);
   }
 
-  update(id: number, updateConfigEcDapDto: UpdateConfigEcDapDto) {
-    return `This action updates a #${id} configEcDap`;
+  async update(id: string, updateConfigEcDapDto: UpdateConfigEcDapDto): Promise<ConfigEcDap> {
+    await this.configEcDapRepository.update(id, updateConfigEcDapDto);
+    return this.findOne(id);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} configEcDap`;
+  async remove(id: string): Promise<void> {
+    await this.configEcDapRepository.delete(id);
+  }
+
+  async deleteAll(): Promise<void> {
+    await this.configEcDapRepository.clear();
   }
 }

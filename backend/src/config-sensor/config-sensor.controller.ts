@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common';
 import { ConfigSensorService } from './config-sensor.service';
 import { CreateConfigSensorDto } from './dto/create-config-sensor.dto';
 import { UpdateConfigSensorDto } from './dto/update-config-sensor.dto';
@@ -7,28 +7,28 @@ import { UpdateConfigSensorDto } from './dto/update-config-sensor.dto';
 export class ConfigSensorController {
   constructor(private readonly configSensorService: ConfigSensorService) {}
 
-  @Post()
-  create(@Body() createConfigSensorDto: CreateConfigSensorDto) {
-    return this.configSensorService.create(createConfigSensorDto);
-  }
-
   @Get()
-  findAll() {
+  async findAll() {
     return this.configSensorService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.configSensorService.findOne(+id);
+  async findOne(@Param('id') id: string) {
+    return this.configSensorService.findOne(id);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateConfigSensorDto: UpdateConfigSensorDto) {
-    return this.configSensorService.update(+id, updateConfigSensorDto);
+  @Post()
+  async create(@Body() createConfigSensorDto: CreateConfigSensorDto) {
+    return this.configSensorService.create(createConfigSensorDto);
+  }
+
+  @Put(':id')
+  async update(@Param('id') id: string, @Body() updateConfigSensorDto: UpdateConfigSensorDto) {
+    return this.configSensorService.update(id, updateConfigSensorDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.configSensorService.remove(+id);
+  async remove(@Param('id') id: string) {
+    return this.configSensorService.remove(id);
   }
 }

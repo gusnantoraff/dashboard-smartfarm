@@ -4,7 +4,6 @@ import { Role } from "src/roles/roles.enum";
 export class UpdateUserDto {
     name?: string;
     email?: string;
-    phone?: string;
     password?: string;
     role?: Role[];
     forgot_token?: string;

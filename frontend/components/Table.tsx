@@ -53,7 +53,7 @@ const Table: React.FC<Props> = ({ columns, data, pagination, onPageChange }) => 
           </tr>
         </thead>
         <tbody>
-          {data.map((row, idxData) => (
+          {data?.map((row, idxData) => (
             <tr
               key={idxData}
               className={`${
@@ -82,7 +82,6 @@ const Table: React.FC<Props> = ({ columns, data, pagination, onPageChange }) => 
        px='1rem'
       >
         <ReactPaginate
-          forcePage={pagination.page - 1}
           className='flex gap-x-[9px] transition-all duration-300 ease-in-out'
           breakLabel='...'
           nextLabel={<ArrowForwardIcon />}

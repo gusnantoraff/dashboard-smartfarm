@@ -7,16 +7,17 @@ import { Text } from '@chakra-ui/react';
 import dynamic from 'next/dynamic';
 import dayjs from 'dayjs';
 import { ChartType } from '@/types/chart.type';
-import { DetailControllerResponse } from '@/hooks/useController';
 import { MqttPayloadType } from '@/types';
+
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
+
 type Props = {
-  data: DetailControllerResponse | undefined;
+  controllerData: any;
   payload: MqttPayloadType | undefined;
 };
 
-export default function EcChart({ data, payload }: Props) {
+export default function EcChart({ controllerData, payload }: Props) {
   const [chart] = useState<ChartType | null>({
     options: {
       chart: {
@@ -68,14 +69,14 @@ export default function EcChart({ data, payload }: Props) {
           const labelY = w.globals.categoryLabels?.[dataPointIndex] || '';
 
           const controllerName =
-            data?.DetailController?.name?.split('/')?.[1] ||
-            data?.DetailController?.name;
+          controllerData?.name?.split('/')?.[1] ||
+          controllerData?.name;
 
           return /*html*/ `<div style='border-radius: 8px; width: 200px; font-family: "Work Sans", sans-serif'>
             <div style='padding: 8px 12px; background-color: #014493; display: flex; justify-content: space-between; align-items: center;'>
               <p style='color: #FFF; font-weight: 600; font-size: 12px'>${controllerName}</p>
               <div style='width: 8px; height: 8px; border-radius: 100%; background-color: ${
-                data?.DetailController.isActive ? '#16DA41' : '#E5363D'
+                controllerData?.is_active ? '#16DA41' : '#E5363D'
               }'></div>
             </div>
 

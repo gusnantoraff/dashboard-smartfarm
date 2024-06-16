@@ -7,6 +7,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { v4 as uuidv4 } from 'uuid';
 import * as bcrypt from 'bcrypt';
 import { Role } from 'src/roles/roles.enum';
+import { PageOptionsDto } from 'src/dto/page-options.dto';
+import { PageDto } from 'src/dto/page.dto';
 
 @Injectable()
 export class UserService {
@@ -29,12 +31,37 @@ export class UserService {
     return await this.userRepository.find();
   }
 
-  async findOne(id: string): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { user_id: id } });
-    if (!user) {
-      throw new NotFoundException('User not found');
+  async getUsers(pageOptionsDto: PageOptionsDto, role?: Role): Promise<PageDto<User>> {
+    const { skip, take } = pageOptionsDto;
+    const queryBuilder = this.userRepository.createQueryBuilder('user');
+
+    if (role) {
+      queryBuilder.where('user.role = :role', { role });
     }
-    return user;
+
+    const [users, totalUsers] = await queryBuilder
+      .skip(skip)
+      .take(take)
+      .getManyAndCount();
+
+    const pageCount = Math.ceil(totalUsers / take);
+    const hasPreviousPage = skip > 0;
+    const hasNextPage = skip + take < totalUsers;
+
+    const meta = {
+      page: Math.floor(skip / take) + 1,
+      take,
+      itemCount: totalUsers,
+      pageCount,
+      hasPreviousPage,
+      hasNextPage,
+    };
+
+    return new PageDto(users, meta);
+  }
+
+  async findOne(id: string): Promise<User | undefined> {
+    return this.userRepository.findOne({ where: { user_id: id } });
   }
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
@@ -53,22 +80,12 @@ export class UserService {
   async findByEmail(email: string): Promise<User | undefined> {
     return await this.userRepository.findOne({ where: { email } });
   }
-  async validatePassword(password: string, hashedPassword: string): Promise<boolean> {
-    return await bcrypt.compare(password, hashedPassword);
-  }
 
   // token
   async findByResetToken(token: string): Promise<User | undefined> {
     return this.userRepository.findOne({ where: { forgot_token: token } });
   }
 
-  async findUsersByRole(role: Role): Promise<User[]> {
-    const options: FindManyOptions<User> = {
-        where: {
-            role: role
-        }
-    };
-    return this.userRepository.find(options);
-}
+  
 
 }

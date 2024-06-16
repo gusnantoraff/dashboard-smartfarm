@@ -9,6 +9,7 @@ import { PageDto } from 'src/dto/page.dto';
 import { PageMetaDto } from 'src/dto/page-meta.dto';
 import { PageOptionsDto } from 'src/dto/page-options.dto';
 
+
 @Injectable()
 export class ClusterService {
   constructor(
@@ -45,13 +46,9 @@ export class ClusterService {
     return new PageDto(entities, pageMetaDto);
   }
 
-  async getClusterById(id: string): Promise<Cluster> {
-    return await this.clusterRepository.findOne({ where: { cluster_id: id } });
-  }
-
   // eslint-disable-next-line prettier/prettier
   async update(id: string, updateClusterDto: UpdateClusterDto): Promise<Cluster> {
-    const cluster = await this.getClusterById(id);
+    const cluster = await this.getDetailCluster(id);
     if (!cluster) {
       throw new NotFoundException('Cluster not found');
     }
@@ -61,10 +58,37 @@ export class ClusterService {
   }
 
   async delete(id: string): Promise<string> {
-    const result = await this.clusterRepository.delete(id);
-    if (result.affected === 0) {
-      throw new NotFoundException(`Cluster dengan ID ${id} tidak ditemukan`);
+    try {
+      const cluster = await this.clusterRepository.findOne({ where: { cluster_id: id }, relations: ['controllers'] });
+      if (!cluster) {
+        throw new NotFoundException(`Cluster dengan ID ${id} tidak ditemukan`);
+      }
+  
+      const result = await this.clusterRepository.delete(id);
+      if (result.affected === 0) {
+        throw new NotFoundException(`Cluster dengan ID ${id} tidak ditemukan`);
+      }
+  
+      return `Cluster dengan ID ${id} telah terhapus`;
+    } catch (error) {
+      console.error(`Error deleting cluster: ${error.message}`);
+      throw error; // Rethrow the error to handle it appropriately
     }
-    return `Cluster dengan ID ${id} telah terhapus`;
+  }
+  
+  async deleteAll(): Promise<void> {
+    await this.clusterRepository.clear();
+  }
+
+
+
+  
+  async getDetailCluster(id: string): Promise<Cluster> {
+    const cluster = await this.clusterRepository.findOne({
+      where: { cluster_id: id },
+      relations: ['controllers', 'memberships'],
+    });
+  
+    return cluster;
   }
 }

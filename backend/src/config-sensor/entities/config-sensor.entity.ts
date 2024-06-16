@@ -1,14 +1,15 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, JoinColumn, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany, PrimaryColumn } from 'typeorm';
 import { Controller } from 'src/controller/entities/controller.entity';
+import { LogController } from 'src/log-controller/entities/log-controller.entity';
 
 @Entity()
 export class ConfigSensor {
-  @PrimaryGeneratedColumn('uuid')
+  @PrimaryColumn()
   config_sensor_id: string;
 
-  @ManyToOne(() => Controller, controller => controller.configSensors)
+  @ManyToOne(() => Controller, controller => controller.configSensors, {onDelete: 'CASCADE', onUpdate: 'CASCADE'})
   @JoinColumn({ name: 'controller_id' })
-  controller: Controller;
+  controllers: Controller;
 
   @Column()
   ph_up: number;
@@ -39,4 +40,13 @@ export class ConfigSensor {
 
   @Column()
   ec_mode: string;
+
+  @CreateDateColumn({ type: 'timestamp', nullable: true })
+  created_at: Date;
+
+  @UpdateDateColumn({ type: 'timestamp', nullable: true })
+  updated_at: Date;
+
+  @DeleteDateColumn({ type: 'timestamp', nullable: true })
+  deleted_at: Date;
 }

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useToast } from '@chakra-ui/react';
+import Cookies from 'js-cookie';
 
 export interface User {
   id: string;
@@ -19,7 +20,7 @@ export interface Membership {
   isActive: boolean;
   invitedBy: string;
   invitedAt: string;
-  clusters: any; // Adjust type as needed
+  clusters: any;
   users: User;
   invites: User;
 }
@@ -34,8 +35,8 @@ export interface ListUserInput {
     role?: string;
   };
   order?: {
-    orderBy?: string; // Adjust type as needed
-    sortBy?: string; // Adjust type as needed
+    orderBy?: string;
+    sortBy?: string;
   };
 }
 
@@ -43,9 +44,9 @@ export interface UserResponse {
   ListUsers: {
     listUser: {
       page: number;
-      limit: number;
-      total: number;
-      totalPage: number;
+      take: number;
+      itemCount: number;
+      pageCount: number;
       users: User[];
     };
     count: RoleCount[];
@@ -58,12 +59,12 @@ export interface RoleCount {
   total: number;
 }
 
-export function useQueryUser<T extends keyof ResponseType>(
+export function useQueryUser<T extends keyof UserResponse>(
   method: T,
-  config: any,
+  config?: any,
 ) {
   const toast = useToast();
-  const [data, setData] = useState<ResponseType[T] | null>(null);
+  const [data, setData] = useState<UserResponse[T] | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,12 +72,12 @@ export function useQueryUser<T extends keyof ResponseType>(
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('http://localhost:400/users', {
+        const response = await axios.get(`http://localhost:4000/users/${method}`, {
           params: config?.params || {},
         });
         setData(response.data);
         setLoading(false);
-      } catch (error:any) {
+      } catch (error: any) {
         setError(error.message);
         setLoading(false);
         toast({
@@ -97,31 +98,47 @@ export function useQueryUser<T extends keyof ResponseType>(
       setLoading(false);
       setError(null);
     };
-  }, [config, toast]);
+  }, [method, config, toast]);
 
   return { data, loading, error };
 }
 
-export const useMutationUser = (method: string, options?: any) => {
+export const useMutationUser = () => {
   const toast = useToast();
-  const mutate = async (variables: any) => {
+  const token = Cookies.get('token');
+
+  const updateUser = async (userId: string, userData: Partial<User>) => {
     try {
-      const response = await axios.delete(`http://localhost:4000/users/${method}`);
-      return response.data; // Adjust return data as needed
-    } catch (error:any) {
-      console.error(error);
+      if (!token) {
+        console.error('No token available');
+        return;
+      }
+
+      if (!userId || !userData) {
+        console.error('Invalid userId or userData');
+        return;
+      }
+
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+
+      const response = await axios.put(`http://localhost:4000/users/${userId}`, userData, config);
       toast({
-        title: 'Error Occurred',
-        variant: 'left-accent',
-        description: error.message,
-        status: 'error',
+        title: 'User Updated',
+        description: 'User has been updated successfully.',
+        status: 'success',
         duration: 5000,
         isClosable: true,
       });
+      return response.data;
+    } catch (error: any) {
+      console.error(error);
       throw error;
     }
   };
-  
 
-  return [mutate, { loading: false, error: null, data: null }];
+  return updateUser;
 };

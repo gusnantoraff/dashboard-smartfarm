@@ -3,27 +3,29 @@ import axios from 'axios';
 import { useToast } from '@chakra-ui/react';
 import { Cluster, DetailCluster } from '@/types';
 
-// Definisikan jenis respons dari API
 export interface ClusterResponse {
   page: number;
-  limit: number;
-  total: number;
-  totalPage: number;
+  take: number;
+  itemCount: number;
+  pageCount: number;
   clusters: Cluster[];
 }
 
 export interface DetailClusterResponse {
-  DetailCluster: DetailCluster;
+  data : DetailCluster;
+}
+
+export interface UpdateClusterResponse {
+  success: boolean;
+  message?: string;
 }
 
 type ResponseType = {
   GET: ClusterResponse;
   GET_ONE: DetailClusterResponse;
   GET_LAT_LONG: ClusterResponse;
-  // Tambahkan metode lain dan jenis responsnya sesuai kebutuhan
 };
 
-// Buat hook untuk melakukan query ke API cluster
 export function useQueryCluster<T extends keyof ResponseType>(
   method: T,
   config?: any,
@@ -40,7 +42,7 @@ export function useQueryCluster<T extends keyof ResponseType>(
         const response = await axios.get(`http://localhost:4000/clusters/${method}`, config);
         setData(response.data);
         setLoading(false);
-      } catch (error: any) { // Tetapkan tipe 'any' untuk 'error'
+      } catch (error: any) { 
         setError(error.message);
         setLoading(false);
         toast({
@@ -56,7 +58,6 @@ export function useQueryCluster<T extends keyof ResponseType>(
 
     fetchData();
 
-    // Fungsi untuk membersihkan state saat komponen unmount
     return () => {
       setData(null);
       setLoading(false);
@@ -66,3 +67,33 @@ export function useQueryCluster<T extends keyof ResponseType>(
 
   return { data, loading, error };
 }
+
+export function useMutationCluster() {
+  const toast = useToast();
+
+  const updateCluster = async (clusterId: string, newData: Partial<Cluster>) => {
+    try {
+      const response = await axios.put(`http://localhost:4000/clusters/${clusterId}`, newData);
+      toast({
+        title: 'Cluster Updated',
+        description: 'Cluster has been updated successfully.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        title: 'Error Occurred',
+        description: error.message || 'Failed to update cluster.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      throw error;
+    }
+  };
+
+  return updateCluster;
+};

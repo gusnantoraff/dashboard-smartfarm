@@ -1,26 +1,36 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ControllerSession } from './entities/controller-session.entity';
 import { CreateControllerSessionDto } from './dto/create-controller-session.dto';
 import { UpdateControllerSessionDto } from './dto/update-controller-session.dto';
 
 @Injectable()
 export class ControllerSessionService {
-  create(createControllerSessionDto: CreateControllerSessionDto) {
-    return 'This action adds a new controllerSession';
+  constructor(
+    @InjectRepository(ControllerSession)
+    private readonly controllerSessionRepository: Repository<ControllerSession>,
+  ) {}
+
+  async findAll(): Promise<ControllerSession[]> {
+    return this.controllerSessionRepository.find();
   }
 
-  findAll() {
-    return `This action returns all controllerSession`;
+  async findOne(id: string): Promise<ControllerSession> {
+    return this.controllerSessionRepository.findOne({ where: { controller_session_id:id } });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} controllerSession`;
+  async create(createControllerSessionDto: CreateControllerSessionDto): Promise<ControllerSession> {
+    const controllerSession = this.controllerSessionRepository.create(createControllerSessionDto);
+    return this.controllerSessionRepository.save(controllerSession);
   }
 
-  update(id: number, updateControllerSessionDto: UpdateControllerSessionDto) {
-    return `This action updates a #${id} controllerSession`;
+  async update(id: string, updateControllerSessionDto: UpdateControllerSessionDto): Promise<ControllerSession> {
+    await this.controllerSessionRepository.update(id, updateControllerSessionDto);
+    return this.findOne(id);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} controllerSession`;
+  async remove(id: string): Promise<void> {
+    await this.controllerSessionRepository.delete(id);
   }
 }

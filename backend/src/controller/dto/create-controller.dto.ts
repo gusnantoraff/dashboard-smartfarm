@@ -13,10 +13,6 @@ export class CreateControllerDto {
   @IsNotEmpty()
   name: string;
 
-  @IsInt()
-  @IsNotEmpty()
-  dap_count: number;
-
   @IsBoolean()
   is_active: boolean;
 }

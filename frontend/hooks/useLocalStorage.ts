@@ -1,49 +1,76 @@
 import { useEffect, useState } from 'react';
 
 interface LocalStorage {
-  [x: string]: any;
-  loading: boolean;
-  setItem: (value: any) => void;
-  removeAllItem: () => void;
+    loading: boolean;
+    setItem: (key: string, value: any) => void;
+    getItem: (key: string) => any;
+    removeItem: (key: string) => void;
+    removeAllItems: () => void;
 }
 
-export default function useLocalStorage(key: string): LocalStorage {
-  const [data, setData] = useState({} as any);
-  const [loading, setLoading] = useState(true);
+const useLocalStorage = (): LocalStorage => {
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const _item = localStorage.getItem(key) as any;
+    useEffect(() => {
+        initializeLocalStorage();
+    }, []);
 
-      setData({
-        ...data,
-        [key]: _item,
-      });
+    const initializeLocalStorage = () => {
+        try {
+            if (typeof window !== 'undefined') {
+                setLoading(false);
+            }
+        } catch (error) {
+            console.error('Error initializing local storage:', error);
+            setLoading(false);
+        }
+    };
 
-      setLoading(false);
-    }
-  }, []);
+    const setItem = (key: string, value: any) => {
+        try {
+            if (typeof window !== 'undefined') {
+                const valueToStore = JSON.stringify(value);
+                localStorage.setItem(key, valueToStore);
+            }
+        } catch (error) {
+            console.error(`Error storing in local storage: ${error}`);
+        }
+    };
 
-  const setItem = (value: any) => {
-    localStorage.setItem(key, value);
-    setData({
-      ...data,
-      [key]: value,
-    });
-  };
+    const getItem = (key: string): any => {
+        try {
+            if (typeof window !== 'undefined') {
+                const storedItem = localStorage.getItem(key);
+                return storedItem ? JSON.parse(storedItem) : null;
+            }
+            return null;
+        } catch (error) {
+            console.error(`Error retrieving from local storage: ${error}`);
+            return null;
+        }
+    };
 
-  const removeAllItem = () => {
-    localStorage.clear();
-    setData({});
-  };
+    const removeItem = (key: string) => {
+        try {
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem(key);
+            }
+        } catch (error) {
+            console.error(`Error removing from local storage: ${error}`);
+        }
+    };
 
-  const parse = (value: any) => {
-    try {
-      return JSON.parse(value);
-    } catch (error) {
-      return value;
-    }
-  };
+    const removeAllItems = () => {
+        try {
+            if (typeof window !== 'undefined') {
+                localStorage.clear();
+            }
+        } catch (error) {
+            console.error(`Error clearing local storage: ${error}`);
+        }
+    };
 
-  return { [key]: parse(data[key]), loading, setItem, removeAllItem };
-}
+    return { loading, setItem, getItem, removeItem, removeAllItems };
+};
+
+export default useLocalStorage;

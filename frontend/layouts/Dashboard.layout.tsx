@@ -1,5 +1,3 @@
-'use client';
-
 import {
   IconButton,
   Avatar,
@@ -158,12 +156,13 @@ const LinkItems: Array<LinkItemProps> = [
 ];
 
 const UserProfile = () => {
-  const { user, loading, removeAllItem } = useLocalStorage('user');
+  const { loading, getItem, removeAllItems } = useLocalStorage();
+  const name = getItem('name');
 
   const router = useRouter();
 
   const logout = () => {
-    removeAllItem();
+    removeAllItems();
     Cookies.remove('token');
     Cookies.remove('role');
 
@@ -192,7 +191,7 @@ const UserProfile = () => {
                   spacing='1px'
                 >
                   <Text fontSize='14px' fontWeight={600}>
-                    {user?.name}
+                    {name}
                   </Text>
                 </VStack>
                 <Box mr={'8px'} display={{ base: 'none', md: 'flex' }}>

@@ -22,11 +22,11 @@ const degree = new Intl.NumberFormat('en-US', {
 });
 
 type Props = {
-  data: DetailControllerResponse | undefined;
+  controllerData: any;
   payload: MqttPayloadType | undefined;
 };
 
-export default function TemperatureChart({ data, payload }: Props) {
+export default function TemperatureChart({ controllerData, payload }: Props) {
   const [chart] = useState<ChartType | null>({
     options: {
       chart: {
@@ -82,14 +82,14 @@ export default function TemperatureChart({ data, payload }: Props) {
           const labelY = w.globals.categoryLabels?.[dataPointIndex] || '';
 
           const controllerName =
-            data?.DetailController?.name?.split('/')?.[1] ||
-            data?.DetailController?.name;
+          controllerData?.name?.split('/')?.[1] ||
+          controllerData?.name;
 
           return /*html*/ `<div style='border-radius: 8px; width: 200px; font-family: "Work Sans", sans-serif'>
             <div style='padding: 8px 12px; background-color: #014493; display: flex; justify-content: space-between; align-items: center;'>
               <p style='color: #FFF; font-weight: 600; font-size: 12px'>${controllerName}</p>
               <div style='width: 8px; height: 8px; border-radius: 100%; background-color: ${
-                data?.DetailController.isActive ? '#16DA41' : '#E5363D'
+                controllerData?.is_active ? '#16DA41' : '#E5363D'
               }'></div>
             </div>
 

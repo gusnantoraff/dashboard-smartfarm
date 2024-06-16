@@ -1,42 +1,36 @@
-import { Injectable, HttpException, HttpStatus, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import * as nodemailer from 'nodemailer';
+import { User } from 'src/user/entities/user.entity';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly userService: UserService,
-    private readonly jwtService: JwtService,
+    private userService: UserService,
+    private jwtService: JwtService,
   ) {}
 
-  async login(email: string, password: string) {
-    const user = await this.validateCredentials(email, password);
-
-    const token = this.generateAccessToken(user.user_id);
-
-    return { ...user, token };
-  }
-
-  public async validateCredentials(email: string, password: string) {
+  async validateUser(email: string, password: string): Promise<User> {
     const user = await this.userService.findByEmail(email);
-    if (!user) {
-      throw new HttpException('Invalid email or password', HttpStatus.UNAUTHORIZED);
+    if (user && await bcrypt.compare(password, user.password)) {
+      return user;
     }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new HttpException('Invalid email or password', HttpStatus.UNAUTHORIZED);
-    }
-
-    return user;
+    return null;
   }
 
-  public generateAccessToken(user: any) {
-    const { user_id, role } = user;
-    return this.jwtService.sign({ userId: user_id, role });
+  async login(email: string, password: string) {
+    const user = await this.validateUser(email, password);
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const payload = { user_id: user.user_id, name: user.name , email: user.email, role: user.role };
+    return {
+      ...user,
+      access_token: this.jwtService.sign(payload),
+    };
   }
 
   async forgotPassword(email: string) {

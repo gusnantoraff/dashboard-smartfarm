@@ -7,7 +7,9 @@ import { PageDto } from 'src/dto/page.dto';
 
 @Controller('controllers')
 export class ControllerController {
-  constructor(private readonly controllerService: ControllerService) {}
+  constructor(
+    private readonly controllerService: ControllerService
+  ) {}
 
   @Post()
   create(@Body() createControllerDto: CreateControllerDto) {
@@ -28,8 +30,8 @@ export class ControllerController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.controllerService.findOne(id);
+  async getDetailController(@Param('id') id: string): Promise<any> {
+    return this.controllerService.getDetailController(id);
   }
 
   @Put(':id')
@@ -40,5 +42,10 @@ export class ControllerController {
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.controllerService.remove(id);
+  }
+  
+  @Delete()
+  deleteAll(){
+    return this.controllerService.deleteAll();
   }
 }

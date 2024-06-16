@@ -6,8 +6,8 @@ import { ClusterController } from './cluster.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Cluster])],
-  providers: [ClusterService],
   controllers: [ClusterController],
+  providers: [ClusterService],
   exports: [TypeOrmModule]
 })
 export class ClusterModule {}

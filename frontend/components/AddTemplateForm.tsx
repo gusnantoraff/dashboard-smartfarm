@@ -24,7 +24,7 @@ import {
   FormControl,
   FormLabel
 } from '@chakra-ui/react';
-import FormItem from './FormItem';
+import { v4 as uuidv4 } from 'uuid';
 
 interface DataItem {
   id: number;
@@ -42,7 +42,8 @@ interface Cluster {
 
 const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
   const [templateName, setTemplateName] = useState<string>('');
-  const [dap, setDap] = useState<number>();
+  const [dap, setDap] = useState<number>(10);
+  const [ec, setEc] = useState<string>('');
   const [ph, setPh] = useState<number>(4);
   const [humidity, setHumidity] = useState<string>('');
   const [airTemp, setAirTemp] = useState<string>('');
@@ -54,43 +55,122 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
   const [showAirTemp, setShowAirTemp] = useState<boolean>(false);
   const [showWaterTemp, setShowWaterTemp] = useState<boolean>(false);
   const [showWaterflow, setShowWaterflow] = useState<boolean>(false);
-  const [ecData, setEcData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
-  const [phData, setPhData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
-  const [humidityData, setHumidityData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
-  const [waterTempData, setwaterTempData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
-  const [airTempData, setairTempData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
-  const [waterflowData, setWaterflowData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [clusterId, setClusterId] = useState('');
   const [clusters, setClusters] = useState<Cluster[]>([]);
+  const [templateId] = useState<string>('');
 
-  const handleAddData = (data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
-    setData([...data, { id: data.length + 1, value: 0 }]);
+  const [ecData, setEcData] = useState<DataItem[]>([]);
+  const [phData, setPhData] = useState<DataItem[]>([]);
+  const [humidityData, setHumidityData] = useState<DataItem[]>([]);
+  const [airTempData, setAirTempData] = useState<DataItem[]>([]);
+  const [waterTempData, setWaterTempData] = useState<DataItem[]>([]);
+  const [waterflowData, setWaterflowData] = useState<DataItem[]>([]);
+
+  useEffect(() => {
+    const fetchClustersAndInitializeData = async () => {
+      try {
+        const response = await fetch('http://localhost:4000/clusters/all');
+        if (!response.ok) {
+          throw new Error('Failed to fetch clusters');
+        }
+        const data = await response.json();
+        setClusters(data);
+
+        initializeSensorData(dap);
+      } catch (error) {
+        console.error('Error fetching clusters:', error);
+      }
+    };
+
+    fetchClustersAndInitializeData();
+  }, [dap]);
+
+  useEffect(() => {
+    const fetchTemplateDetails = async () => {
+      try {
+        const response = await fetch(`http://localhost:4000/template/${templateId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch template details');
+        }
+        const data = await response.json();
+        setTemplateName(data.name);
+        setDap(data.dap_count);
+        setClusterId(data.cluster_id);
+
+        setShowEc(data.config_ec_dap.ec !== '');
+        setShowPh(data.ph !== '');
+        setShowHumidity(data.humidity !== '');
+        setShowAirTemp(data.airTemperature !== '');
+        setShowWaterTemp(data.waterTemperature !== '');
+        setShowWaterflow(data.waterflow !== '');
+
+        initializeSensorData(data.dap_count);
+      } catch (error) {
+        console.error('Error fetching template details:', error);
+      }
+    };
+
+    fetchTemplateDetails();
+  }, [templateId]);
+
+  const initializeSensorData = (dapCount: number) => {
+    const initializeData = (length: number): DataItem[] =>
+      Array.from({ length }, (_, i) => ({ id: i + 1, value: 0 }));
+
+    setEcData(initializeData(dapCount));
+    setPhData(initializeData(dapCount));
+    setHumidityData(initializeData(dapCount));
+    setAirTempData(initializeData(dapCount));
+    setWaterTempData(initializeData(dapCount));
+    setWaterflowData(initializeData(dapCount));
+  };
+
+  const handleAddData = (data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>, count: number = 1) => {
+    const newData = [...data];
+    for (let i = 0; i < count; i++) {
+      newData.push({ id: newData.length + 1, value: 0 });
+    }
+    setData(newData);
   };
 
   const handleDeleteData = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
     setData(data.filter(item => item.id !== id));
   };
 
+  const handleIncrement = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
+    setData(data.map(d => d.id === id ? { ...d, value: d.value + 1 } : d));
+  };
+
+  const handleDecrement = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
+    setData(data.map(d => d.id === id ? { ...d, value: d.value - 1 } : d));
+  };
+
   const handleSubmit = async () => {
     setSubmitLoading(true);
+
     const configEcDap = {
-      ph,
-      humidity,
-      airTemp,
-      waterTemp,
-      waterflow
+      ec: ec,
+      date_start: new Date(),
+      date_end: new Date(),
+      dap_num: dap,
+      config_ec_dap_id: uuidv4(),
+      log_controller_id: uuidv4(),
     };
 
     const data = {
+      config_ec_dap: configEcDap,
+      cluster_id: clusterId,
       name: templateName,
       dap_count: dap,
-      config_ec_dap: configEcDap,
       is_active: true,
-      cluster_id: clusterId
+      ec: ec,
+      ph: ph,
+      humidity: humidity,
+      temperature_water: parseInt(waterTemp),
+      temperature_air: parseInt(airTemp),
+      water_flow: parseInt(waterflow) 
     };
-
-    console.log('Data to be sent:', data);
 
     try {
       const response = await fetch('http://localhost:4000/templates', {
@@ -110,20 +190,6 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
       console.error('Error:', error);
     } finally {
       setSubmitLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchClusters();
-  }, []);
-
-  const fetchClusters = async () => {
-    try {
-      const response = await fetch('http://localhost:4000/clusters/all');
-      const data = await response.json();
-      setClusters(data);
-    } catch (error) {
-      console.error('Error fetching clusters:', error);
     }
   };
 
@@ -153,18 +219,18 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
           </FormControl>
         </Flex>
         <FormControl mb="3">
-        <FormLabel fontSize="14px" fontWeight="bold">Cluster</FormLabel>
-         <Select
-          placeholder="Select Cluster"
-          _placeholder={{ color: 'gray.500' }}
-          size="sm"
-          value={clusterId}
-          onChange={(e) => setClusterId(e.target.value)}
-        >
-          {clusters.map(cluster => (
-            <option key={cluster.cluster_id} value={cluster.cluster_id}>{cluster.name}</option>
-          ))}
-        </Select>
+          <FormLabel fontSize="14px" fontWeight="bold">Cluster</FormLabel>
+          <Select
+            placeholder="Select Cluster"
+            _placeholder={{ color: 'gray.500' }}
+            size="sm"
+            value={clusterId}
+            onChange={(e) => setClusterId(e.target.value)}
+          >
+            {clusters.map(cluster => (
+              <option key={cluster.cluster_id} value={cluster.cluster_id}>{cluster.name}</option>
+            ))}
+          </Select>
         </FormControl>
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">Template Name</FormLabel>
@@ -193,6 +259,16 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
             <option value="35">35 Days</option>
           </Select>
         </FormControl>
+        <FormControl mb="3">
+            <FormLabel fontSize="14px" fontWeight="bold">EC</FormLabel>
+            <Input
+              placeholder="EC Value"
+              _placeholder={{ color: 'gray.500' }}
+              size="sm"
+              value={ec}
+              onChange={(e) => setEc(e.target.value)}
+            />
+          </FormControl>
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">pH</FormLabel>
           <Flex alignItems="center">
@@ -223,10 +299,13 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
             value={humidity}
             onChange={(e) => setHumidity(e.target.value)}
           >
-            <option value="20">20°C</option>
-            <option value="25">25°C</option>
-            <option value="30">30°C</option>
-            <option value="35">35°C</option>
+            <option value="40">40°C</option>
+            <option value="50">50°C</option>
+            <option value="55">55°C</option>
+            <option value="60">60°C</option>
+            <option value="65">65°C</option>
+            <option value="70">70°C</option>
+            <option value="75">75°C</option>
           </Select>
         </FormControl>
         <FormControl mb="3">
@@ -281,10 +360,10 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
           {showHumidity && (
             <Tab fontSize="14px">Humidity</Tab>
           )}
-         {showAirTemp &&(
+          {showAirTemp && (
             <Tab fontSize="14px">Air Temperature</Tab>
           )}
-          {showWaterTemp &&(
+          {showWaterTemp && (
             <Tab fontSize="14px">Water Temperature</Tab>
           )}
           {showWaterflow && (
@@ -309,15 +388,21 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>EC Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...ecData];
-                            newData[index].value = Number(e.target.value);
-                            setEcData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, ecData, setEcData)}>-</Button>
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setEcData(ecData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, ecData, setEcData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, ecData, setEcData)}>Delete</Button>
@@ -346,15 +431,22 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>pH Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...phData];
-                            newData[index].value = Number(e.target.value);
-                            setPhData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, phData, setPhData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setPhData(phData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, phData, setPhData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, phData, setPhData)}>Delete</Button>
@@ -383,15 +475,22 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>Humidity Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...humidityData];
-                            newData[index].value = Number(e.target.value);
-                            setHumidityData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, humidityData, setHumidityData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setHumidityData(humidityData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, humidityData, setHumidityData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, humidityData, setHumidityData)}>Delete</Button>
@@ -420,24 +519,31 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>Air Temperature Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...airTempData];
-                            newData[index].value = Number(e.target.value);
-                            setairTempData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, airTempData, setAirTempData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setAirTempData(airTempData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, airTempData, setAirTempData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
-                        <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, airTempData, setairTempData)}>Delete</Button>
+                        <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, airTempData, setAirTempData)}>Delete</Button>
                       </Td>
                     </Tr>
                   ))}
                 </Tbody>
               </Table>
-              <Button mt="3" colorScheme="blue" size="sm" onClick={() => handleAddData(airTempData, setairTempData)}>Add New DAP</Button>
+              <Button mt="3" colorScheme="blue" size="sm" onClick={() => handleAddData(airTempData, setAirTempData)}>Add New DAP</Button>
             </TabPanel>
           )}
           {showWaterTemp && (
@@ -457,24 +563,31 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>Water Temperature Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...waterTempData];
-                            newData[index].value = Number(e.target.value);
-                            setwaterTempData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, waterTempData, setWaterTempData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setWaterTempData(waterTempData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, waterTempData, setWaterTempData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
-                        <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, waterTempData, setwaterTempData)}>Delete</Button>
+                        <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, waterTempData, setWaterTempData)}>Delete</Button>
                       </Td>
                     </Tr>
                   ))}
                 </Tbody>
               </Table>
-              <Button mt="3" colorScheme="blue" size="sm" onClick={() => handleAddData(waterTempData, setwaterTempData)}>Add New DAP</Button>
+              <Button mt="3" colorScheme="blue" size="sm" onClick={() => handleAddData(waterTempData, setWaterTempData)}>Add New DAP</Button>
             </TabPanel>
           )}
           {showWaterflow && (
@@ -494,15 +607,22 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>Waterflow Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...waterflowData];
-                            newData[index].value = Number(e.target.value);
-                            setWaterflowData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, waterflowData, setWaterflowData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setWaterflowData(waterflowData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, waterflowData, setWaterflowData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, waterflowData, setWaterflowData)}>Delete</Button>
@@ -524,3 +644,4 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
 };
 
 export default AddTemplateForm;
+

@@ -2,19 +2,25 @@ import AuthLayout from '@/layouts/Auth.layout';
 import Head from 'next/head';
 
 import { Formik, Form } from 'formik';
-import { Button, FormLabel, Switch, Text } from '@chakra-ui/react';
+import { Button, FormLabel, Spinner, Switch, Text } from '@chakra-ui/react';
 import FormItem from '@/components/FormItem';
 import Link from '@/components/Link';
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import useLocalStorage from '@/hooks/useLocalStorage';
+import Cookies from 'js-cookie';
 
 const Login: React.FC = () => {
   const router = useRouter();
   const [error, setError] = useState<string>('');
-  const { setItem } = useLocalStorage('user');
+  const { setItem } = useLocalStorage();
+  const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [response, setResponse] = useState(false);
+
 
   const handleSubmit = async ({ email, password }: { email: string; password: string }) => {
+    setLoading(true);
     try {
       const response = await fetch('http://localhost:4000/login', {
         method: 'POST',
@@ -23,9 +29,24 @@ const Login: React.FC = () => {
       });
 
       if (response.ok) {
-        const userData = await response.json();
-        setItem(JSON.stringify(userData.user));
+      const data = await response.json();
+
+      Cookies.set('token', data.access_token, {
+        expires: rememberMe ? 365 : 1,
+      });
+
+      Cookies.set('role', data.role, {
+        expires: rememberMe ? 365 : 1,
+      });
+
+      setItem('name',data.name);
+      setItem('data', data);
+
+      setResponse(true);
+      
+      setTimeout(() => {
         router.push('/dashboard');
+      }, 3000);
       } else if (response.status === 401) {
         setError('Invalid email or password');
       } else {
@@ -35,10 +56,13 @@ const Login: React.FC = () => {
     } catch (error) {
       console.error('An unexpected error occurred:', error);
       setError('An unexpected error occurred');
+    } finally {
+      setTimeout(() => {
+        setLoading(false);
+      }, 1500);
     }
   };
   
-
   return (
     <>
       <Head>
@@ -66,6 +90,8 @@ const Login: React.FC = () => {
                     colorScheme='green'
                     w={'42px'}
                     id='remember-me'
+                    isChecked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
                   />
                   <FormLabel
                     fontSize={'14px'}
@@ -88,9 +114,13 @@ const Login: React.FC = () => {
               w={'100%'}
               mt={'2.5rem'}
               type='submit'
+              colorScheme={response ? 'green' : 'blue'}
               size='lg'
+              isLoading={loading}
+              disabled={response || loading}
+              spinner={<Spinner size='sm' />}
             >
-              SIGN IN
+              {response ? 'SIGNED IN' : 'SIGN IN'}
             </Button>
 
             {error && (

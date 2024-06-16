@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Controller } from './entities/controller.entity';
 import { Repository } from 'typeorm';
@@ -28,14 +28,20 @@ export class ControllerService {
     const template = await this.templateRepository.findOneOrFail({ where: { template_id } });
     const controller_id = uuidv4();
 
-    const controller: Controller = this.controllerRepository.create({
-      ...rest,
-      cluster,
-      template,
-      controller_id
-    } as unknown as Controller);
+    const controller = new Controller();
+    controller.controller_id= controller_id;
+    controller.cluster= cluster;
+    controller.template = template;
+    if (template.config_ec_dap && Array.isArray(template.config_ec_dap)) {
+      controller.logControllers = template.config_ec_dap.map(configEcDap => configEcDap.log_controller_id);
+      controller.configEcDaps = template.config_ec_dap.map(configEcDap => configEcDap.config_ec_dap_id);
+    } else {
+      console.error('');
+    }
+    controller.logControllers =  template.config_ec_dap.logControllersConfig;
+    Object.assign(controller, rest);
 
-    return this.controllerRepository.save(controller);
+    return await this.controllerRepository.save(controller);
   }
 
   async findAll(): Promise<Controller[]> {
@@ -46,6 +52,9 @@ export class ControllerService {
     pageOptionsDto: PageOptionsDto,
   ): Promise<PageDto<Controller>> {
     const queryBuilder = this.controllerRepository.createQueryBuilder('controller');
+
+    queryBuilder.leftJoinAndSelect('controller.template', 'template');
+    queryBuilder.leftJoinAndSelect('controller.cluster', 'cluster');
 
     queryBuilder
       .skip(pageOptionsDto.skip)
@@ -71,4 +80,36 @@ export class ControllerService {
   async remove(id: string): Promise<void> {
     await this.controllerRepository.delete(id);
   }
+
+  async deleteAll(): Promise<void> {
+    await this.controllerRepository.clear();
+  }
+
+  async getDetailController(id: string): Promise<any> {
+    const controller = await this.controllerRepository.findOne({
+      where: { controller_id: id },
+      relations: [
+        'template', 
+        'cluster',
+        'configSensors',
+        'controllerSessions',
+        'logControllers'
+      ],
+    });
+
+    const controllerDetails = {
+      controller_id: controller.controller_id,
+      name: controller.name,
+      is_active: controller.is_active,
+      template_id: controller.template.template_id,
+      template: controller.template,
+      cluster: controller.cluster,
+      configs: controller.configSensors,
+      controllerSessions: controller.controllerSessions,
+      logControllers: controller.logControllers
+    };
+    
+    return controllerDetails;
+  }
+  
 }

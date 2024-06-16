@@ -1,14 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/layouts/Dashboard.layout';
 import {
   Flex,
   Button,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -19,13 +13,6 @@ import {
   FormControl,
   FormLabel,
   Input,
-  AlertDialog,
-  AlertDialogOverlay,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogCloseButton,
   HStack,
   Tabs,
   TabList,
@@ -36,6 +23,11 @@ import {
 } from '@chakra-ui/react';
 import SearchInput from '@/components/SearchInput';
 import axios from 'axios';
+import DeleteButton from '@/components/DeleteButton';
+import Table from '@/components/Table';
+import DetailModal from '@/components/DetailModal';
+import { useRouter } from 'next/router';
+import Cookies from 'js-cookie';
 
 interface User {
   user_id: string;
@@ -45,25 +37,32 @@ interface User {
 }
 
 const UserManagementPage = () => {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    take: 10,
+    itemCount: 0,
+    pageCount: 0,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  });
   const [formData, setFormData] = useState<User>({
     user_id: '',
     name: '',
     email: '',
     role: '',
   });
-  const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedUserDetail, setSelectedUserDetail] = useState<User | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('All');
+  const [activeTab, setActiveTab] = useState<string>('Superadmin');
+  const [errorPopup, setErrorPopup] = useState(false);
+  const token = Cookies.get('token');
 
   useEffect(() => {
     fetchUsers();
-  }, [activeTab]);
-
+  }, [activeTab, pagination.page]);
 
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
@@ -74,20 +73,53 @@ const UserManagementPage = () => {
       let url = 'http://localhost:4000/users';
 
       if (activeTab === 'Superadmin') {
-        url = 'http://localhost:4000/users?role=superadmin';
+        url = 'http://localhost:4000/users?role=SUPER_ADMIN';
       } else if (activeTab === 'Admin') {
-        url = 'http://localhost:4000/users?role=admin';
+        url = 'http://localhost:4000/users?role=ADMIN';
       } else if (activeTab === 'User') {
-        url = 'http://localhost:4000/users?role=user';
+        url = 'http://localhost:4000/users?role=USER';
       }
 
-      const response = await axios.get(url);
-      setUsers(response.data);
+      const response = await axios.get(url, {
+        params: {
+          page: pagination.page,
+          take: pagination.take,
+        },
+      });
+      const { data, meta } = response.data;
+
+      if (Array.isArray(data)) {
+        setUsers(data);
+        setPagination(meta);
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
     }
   };
 
+  const handleTabChange = (index: number) => {
+    switch (index) {
+      case 0:
+        setActiveTab('Superadmin');
+        break;
+      case 1:
+        setActiveTab('Admin');
+        break;
+      case 2:
+        setActiveTab('User');
+        break;
+      default:
+        setActiveTab('Superadmin');
+        break;
+    }
+  };
+
+  const handlePageChange = (page: number) => {
+    setPagination((prevPagination) => ({
+      ...prevPagination,
+      page,
+    }));
+  };
 
   const handleAddUser = async (formData: User) => {
     try {
@@ -99,18 +131,31 @@ const UserManagementPage = () => {
     }
   };
 
-  const handleDeleteUser = async () => {
+  const handleDeleteUser = async (selectedUserId: string) => {
     if (selectedUserId) {
       try {
-        await axios.delete(`http://localhost:4000/users/${selectedUserId}`);
+
+        if (!token) {
+          console.error('No token available');
+          return;
+        }
+
+        const config = {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        };
+
+        await axios.delete(`http://localhost:4000/users/${selectedUserId}`, config);
         const updatedUsers = users.filter(user => user.user_id !== selectedUserId);
         setUsers(updatedUsers);
-        setIsConfirmationOpen(false);
       } catch (error) {
+        setErrorPopup(true);
         console.error('Error deleting user:', error);
       }
     }
   };
+
 
   const handleChange = (e: React.ChangeEvent<HTMLSelectElement> | React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -118,21 +163,11 @@ const UserManagementPage = () => {
       ...prevData,
       [name]: value,
     }));
-  };  
+  };
 
   const handleSubmit = () => {
     handleAddUser(formData);
     setFormData({ user_id: '', name: '', email: '', role: '' });
-  };
-
-  const handleOpenConfirmation = (user_id: string) => {
-    setSelectedUserId(user_id);
-    setIsConfirmationOpen(true);
-  };
-
-  const handleCloseConfirmation = () => {
-    setSelectedUserId(null);
-    setIsConfirmationOpen(false);
   };
 
   const handleSearch = (keyword: string) => {
@@ -141,81 +176,93 @@ const UserManagementPage = () => {
 
   const handleViewDetail = (user: User) => {
     setSelectedUserDetail(user);
-    toggleModal();
   };
-
-  const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-    user.user_id.toLowerCase().includes(searchKeyword.toLowerCase())
-  );
 
   const renderUsersByRole = (role: string) => {
     if (role === 'All') {
-      return filteredUsers;
+      return users;
     } else {
-      return filteredUsers.filter(user => user.role.includes(role.toLowerCase()));
+      return users.filter(user => user.role.includes(role.toUpperCase()));
     }
   };
 
+  const columns = [
+    {
+      name: '# No',
+      selector: (_: any, idx: number) => {
+        const page = pagination.page || 1;
+        const limit = pagination.take || 10;
+        const offset = (page - 1) * limit;
+        return String(idx + 1 + offset).padStart(2, '0');
+      },
+    },
+    { name: 'Name', selector: (row: User) => row.name },
+    { name: 'Role', selector: (row: User) => row.role },
+    { name: 'Email', selector: (row: User) => row.email },
+    {
+      name: 'Action',
+      selector: (row: User) => (
+        <>
+          <Button variant='solid'
+            bg={'secondary'}
+            borderRadius={'full'}
+            color='white'
+            _hover={{ bg: 'secondary_hover' }}
+            size={'sm'}
+            onClick={() => handleViewDetail(row)}
+            mr={1}
+          >
+            View Detail
+          </Button>
+          <DeleteButton title='Delete User' onDelete={() => handleDeleteUser(row.user_id)} />
+        </>
+      ),
+    },
+  ];
+
+  const onClose = () => {
+    router.reload();
+  };
+
+  const user = selectedUserDetail || {} as User;
+
   return (
     <DashboardLayout >
-      <Flex justifyContent="space-between" alignItems="center" mb="24px" bg="white">
-        <HStack spacing="1rem" w={{ base: 'full', md: '50%', lg: '60%' }}>
-          <SearchInput placeholder="Search User" onSearch={handleSearch} />
-        </HStack>
-        <Button
-          onClick={toggleModal}
-          variant='solid'
-          bg='primary'
-          color='white'
-          _hover={{ bg: 'primary_hover' }}
-        >
-          Add New Member
-        </Button>
-      </Flex>
-
-      <Tabs colorScheme="blue" onChange={index => setActiveTab(index === 0 ? 'All' : ['Superadmin', 'Admin', 'User'][index - 1])}>
+      <div className='bg-white rounded-lg p-6'>
+        <Flex justifyContent="space-between" alignItems="center" mb="24px" bg="white">
+          <HStack spacing="1rem" w={{ base: 'full', md: '50%', lg: '60%' }}>
+            <SearchInput placeholder="Search User" onSearch={handleSearch} />
+          </HStack>
+          <Button
+            onClick={toggleModal}
+            variant='solid'
+            bg='primary'
+            color='white'
+            _hover={{ bg: 'primary_hover' }}
+          >
+            Add New Member
+          </Button>
+        </Flex>
+      </div>
+      <Tabs colorScheme="blue" onChange={handleTabChange}>
         <TabList>
-          <Tab>All</Tab>
           <Tab>Superadmin</Tab>
           <Tab>Admin</Tab>
           <Tab>User</Tab>
         </TabList>
         <TabPanels>
-          {['All', 'Superadmin', 'Admin', 'User'].map((role, index) => (
+          {['SUPER_ADMIN', 'ADMIN', 'USER'].map((role, index) => (
             <TabPanel key={index}>
-              <Table variant="simple" mt="4">
-                <Thead>
-                  <Tr>
-                    <Th># No</Th>
-                    <Th>Name</Th>
-                    <Th>Role</Th>
-                    <Th>Email</Th>
-                    <Th>Action</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {renderUsersByRole(role).map((user, index) => (
-                    <Tr key={user.user_id}>
-                      <Td>{index + 1}</Td>
-                      <Td>{user.name}</Td>
-                      <Td>{user.role}</Td>
-                      <Td>{user.email}</Td>
-                      <Td>
-                        <Button size="sm" colorScheme="blue" onClick={() => handleViewDetail(user)}>View</Button>
-                        <Button size="sm" colorScheme="red" ml="2" onClick={() => handleOpenConfirmation(user.user_id)}>Delete</Button>
-                      </Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
+              <Table
+                columns={columns}
+                data={renderUsersByRole(role)}
+                pagination={pagination}
+                onPageChange={handlePageChange}
+              />
             </TabPanel>
           ))}
         </TabPanels>
       </Tabs>
-
 
       <Modal isOpen={isModalOpen} onClose={toggleModal}>
         <ModalOverlay />
@@ -234,9 +281,9 @@ const UserManagementPage = () => {
             <FormControl mt="4">
               <FormLabel>Role</FormLabel>
               <Select name="role" value={formData.role} onChange={handleChange}>
-                <option value="superadmin">Superadmin</option>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
+                <option value="SUPER_ADMIN">Superadmin</option>
+                <option value="ADMIN">Admin</option>
+                <option value="USER">User</option>
               </Select>
             </FormControl>
           </ModalBody>
@@ -249,29 +296,55 @@ const UserManagementPage = () => {
         </ModalContent>
       </Modal>
 
-      <AlertDialog
-        isOpen={isConfirmationOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={handleCloseConfirmation}
+      <DetailModal
+        close={onClose}
+        open={!!selectedUserDetail}
+        initialVal={{
+          id: user.user_id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        }}
+        title={`${user.role} DETAIL`}
+        subtitle={`DETAIL ${user.role} OS SMART FARM`}
       >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader>Confirm Delete</AlertDialogHeader>
-            <AlertDialogCloseButton />
-            <AlertDialogBody>
-              Are you sure you want to delete this user?
-            </AlertDialogBody>
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={handleCloseConfirmation}>
-                Cancel
-              </Button>
-              <Button colorScheme="red" onClick={handleDeleteUser} ml={3}>
-                Delete
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
+        <DetailModal.Data label='ID User' value={user.user_id} />
+        <DetailModal.Data
+          editable
+          name='name'
+          label='Nama User'
+          value={user.name}
+          gray
+        />
+        <DetailModal.Data
+          name='email'
+          editable
+          label='E-mail'
+          value={user.email}
+        />
+        <DetailModal.Data
+          editable
+          name='role'
+          label='Role User'
+          value={user.role}
+          gray
+        />
+      </DetailModal>
+
+      <Modal isOpen={errorPopup} onClose={() => setErrorPopup(false)}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Error</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            You do not have permission to perform this action.
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={() => setErrorPopup(false)}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
     </DashboardLayout>
   );
 };

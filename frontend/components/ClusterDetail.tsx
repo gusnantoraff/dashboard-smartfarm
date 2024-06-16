@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Badge,
   Box,
@@ -18,15 +18,15 @@ import {
 } from '@chakra-ui/react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import { useQueryCluster } from '@/hooks/useCluster';
 import SkeletonComponent from './Skeleton';
-import { DetailCluster, DetailController, Memberships } from '@/types';
+import { Memberships } from '@/types';
 import DetailItem from './Detailitem';
 import { ExternalLinkIcon } from '@chakra-ui/icons';
-import Table, { Columns } from './Table';
+import Table from './Table';
 import dayjs from 'dayjs';
 import Link from 'next/link';
 import SearchInput from './SearchInput';
+import axios from 'axios';
 
 type Props = {
   name: string;
@@ -38,25 +38,28 @@ type Props = {
 };
 
 // Definisi kolom untuk tabel controller
-const controllerColumns: Columns[] = [
+const controllerColumns = [
   {
     name: '#',
-    selector: (_: DetailController, idx: number) => idx + 1,
+    selector: (_: any, idx: number) => idx + 1,
     className: 'text-center',
   },
   {
     name: 'Controller Name',
-    selector: (row: DetailController) => row.name.split('/')[1] ?? '',
+    selector: (row: any) => {
+      const splitName = row.name.split('/');
+      return splitName.length >= 2 ? splitName[1] : row.name ?? '';
+    },
   },
   {
     name: 'Device Added',
-    selector: (row: DetailController) =>
-      dayjs(row.createdAt).format('DD-MM-YYYY HH:mm'),
+    selector: (row: any) =>
+      dayjs(row.created_at).format('DD-MM-YYYY HH:mm'),
   },
   {
     name: 'Status',
-    selector: (row: DetailController) => {
-      return row.isActive ? (
+    selector: (row: any) => {
+      return row.is_active ? (
         <Badge className='w-full text-center' variant={'active'}>
           Active
         </Badge>
@@ -69,9 +72,9 @@ const controllerColumns: Columns[] = [
   },
   {
     name: 'Action',
-    selector: (row: DetailController) => {
+    selector: (row: any) => {
       return (
-        <Link target='_blank' href={`/controller/${row.id}`}>
+        <Link target='_blank' href={`/controller/${row.controller_id}`}>
           <Button
             variant='solid'
             bg={'secondary'}
@@ -88,8 +91,9 @@ const controllerColumns: Columns[] = [
   },
 ];
 
+
 // Definisi kolom untuk tabel membership
-const membershipColumns: Columns[] = [
+const membershipColumns = [
   {
     name: '#',
     selector: (_: Memberships, idx: number) => idx + 1,
@@ -130,7 +134,7 @@ const membershipColumns: Columns[] = [
     name: 'Action',
     selector: (row: Memberships) => {
       return (
-        <Link target='_blank' href={`/user-management?id=${row.id}`}>
+        <Link target='_blank' href={`/user-management?id=${row.userId}`}>
           <Button
             variant='solid'
             bg={'secondary'}
@@ -153,24 +157,64 @@ const ClusterDetail = ({
   timezone,
   latitude,
   longitude,
-  clusterId
+  clusterId,
+  owner
 }: Props) => {
   const [tabIdx, setTabIdx] = useState(0);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    take: 10,
+    itemCount: 0,
+    pageCount: 0,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  });
   const [filtered, setFiltered] = useState<any>({
     controller: null,
     membership: null,
   });
-  const { data, loading, error } = useQueryCluster('GET_ONE', {
-    variables: { cluster_id: clusterId },
-  });
+  const [clusters, setCluster] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
+
+  const fetchCluster = async () => {
+    if (clusterId) {
+      setLoading(true);
+      try {
+        const clusterResponse = await axios.get(`http://localhost:4000/clusters/${clusterId}`);
+        setCluster(clusterResponse.data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching cluster data:', error);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (clusterId) {
+      fetchCluster();
+    }
+  }, [clusterId]);
+
+
   const router = useRouter();
 
   // Fungsi untuk menutup modal
   const onClose = () => {
     // Jika ada `clusterId`, arahkan kembali ke halaman cluster
     if (clusterId) {
-      router.reload();
+      router.push('/cluster');
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setPagination((prevPagination) => ({
+      ...prevPagination,
+      page,
+    }));
   };
 
   // Penanganan kesalahan
@@ -233,11 +277,6 @@ const ClusterDetail = ({
     );
   }
 
-  // Mendapatkan data cluster dan memberships
-  const cluster = data?.DetailCluster as DetailCluster;
-  const memberships = cluster?.memberships as Memberships[];
-  const owner = memberships?.find((m) => m.isOwner)?.userId;
-
   // Render hasil
   return (
     <Modal isOpen={!!clusterId} onClose={onClose}>
@@ -259,7 +298,7 @@ const ClusterDetail = ({
               CLUSTER DETAIL
             </Text>
             <Text fontSize={'14px'} color={'text.02'} fontWeight={500}>
-              Detail Cluster {cluster?.name}
+              Detail Cluster {clusters.name}
             </Text>
           </Box>
           <Button onClick={onClose} bg='transparent' p={0}>
@@ -331,7 +370,7 @@ const ClusterDetail = ({
                   backgroundColor={tabIdx === 0 ? '#ECF4FE' : '#F2F2F2'}
                   fontSize={'12px'}
                 >
-                  {cluster?.controllers?.length ?? 0}
+                  {clusters?.controllers?.length ?? 0}
                 </Tag>
               </Tab>
               <Tab
@@ -356,7 +395,7 @@ const ClusterDetail = ({
                   backgroundColor={tabIdx === 1 ? '#ECF4FE' : '#F2F2F2'}
                   fontSize={'12px'}
                 >
-                  {cluster?.memberships?.length ?? 0}
+                  {clusters?.memberships?.length ?? 0}
                 </Tag>
               </Tab>
             </TabList>
@@ -377,7 +416,7 @@ const ClusterDetail = ({
                         return;
                       }
 
-                      const newData = cluster?.controllers?.filter((c) =>
+                      const newData = clusters?.controllers?.filter((c: { name: string; }) =>
                         c.name.toLowerCase().includes(value.toLowerCase()),
                       );
 
@@ -389,14 +428,14 @@ const ClusterDetail = ({
                   />
                 </div>
                 <Table
-                  loading={loading}
                   columns={controllerColumns}
                   data={
                     filtered.controller
                       ? filtered.controller
-                      : cluster?.controllers
+                      : clusters?.controllers
                   }
-                  paginate={false}
+                  pagination={pagination}
+                  onPageChange={handlePageChange}
                 />
               </TabPanel>
               <TabPanel key={1} p={0}>
@@ -415,7 +454,7 @@ const ClusterDetail = ({
                         return;
                       }
 
-                      const newData = cluster?.memberships?.filter((c) =>
+                      const newData = clusters?.memberships?.filter((c: { userId: string; }) =>
                         c.userId.toLowerCase().includes(value.toLowerCase()),
                       );
 
@@ -427,14 +466,14 @@ const ClusterDetail = ({
                   />
                 </div>
                 <Table
-                  loading={loading}
                   columns={membershipColumns}
                   data={
                     filtered.membership
                       ? filtered.membership
-                      : cluster?.memberships
+                      : clusters?.memberships
                   }
-                  paginate={false}
+                  pagination={pagination}
+                  onPageChange={handlePageChange}
                 />
               </TabPanel>
             </TabPanels>

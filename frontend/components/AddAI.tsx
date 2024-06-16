@@ -18,10 +18,10 @@ import {
   Th,
   Td,
   Box,
-  Checkbox,
-  Text
+  Checkbox
 } from '@chakra-ui/react';
 import { Cluster } from '../../backend/src/cluster/entities/cluster.entity';
+import { v4 as uuidv4 } from 'uuid';
 
 interface DataItem {
   id: number;
@@ -47,7 +47,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
   const [waterflowData, setWaterflowData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
   const [plantName, setPlantName] = useState<string>('');
   const [typePlant, setTypePlant] = useState<string>('');
-  const [dap, setDap] = useState<number>();
+  const [dap, setDap] = useState<number>(10);
   const [recommendations, setRecommendations] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -55,24 +55,42 @@ const AddAI: React.FC<AddAiProps> = (props) => {
   const [clusterId, setClusterId] = useState('');
   const [clusters, setClusters] = useState<Cluster[]>([]);
 
-
-  const handleAddData = (data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
-    setData([...data, { id: data.length + 1, value: 0 }]);
+  const handleAddData = (data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>, count: number = 1) => {
+    const newData = [...data];
+    for (let i = 0; i < count; i++) {
+      newData.push({ id: newData.length + 1, value: 0 });
+    }
+    setData(newData);
   };
 
   const handleDeleteData = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
     setData(data.filter(item => item.id !== id));
   };
 
+  const handleIncrement = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
+    setData(data.map(d => d.id === id ? { ...d, value: d.value + 1 } : d));
+  };
+
+  const handleDecrement = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
+    setData(data.map(d => d.id === id ? { ...d, value: d.value - 1 } : d));
+  };
+
+  const ecValue = ecData.length > 0 ? ecData[0].value : 0;
+  const phValue = phData.length > 0 ? phData[0].value : 0;
+  const humidityValue = humidityData.length > 0 ? humidityData[0].value : 0;
+  const waterTempValue = waterTempData.length > 0 ? waterTempData[0].value : 0;
+  const airTempValue = airTempData.length > 0 ? airTempData[0].value : 0;
+  const waterflowValue = waterflowData.length > 0 ? waterflowData[0].value : 0;
+
   const handleSubmit = async () => {
     setSubmitLoading(true);
     const configEcDap = {
-      ecData,
-      phData,
-      humidityData,
-      airTempData,
-      waterTempData,
-      waterflowData
+      ec: ecValue,
+      date_start: new Date(),
+      date_end: new Date(),
+      dap_num: dap,
+      config_ec_dap_id: uuidv4(),
+      log_controller_id: uuidv4(),
     };
 
     const data = {
@@ -80,7 +98,13 @@ const AddAI: React.FC<AddAiProps> = (props) => {
       dap_count: dap,
       config_ec_dap: configEcDap,
       is_active: false,
-      cluster_id: clusterId
+      cluster_id: clusterId,
+      ec: ecValue,
+      ph: phValue,
+      humidity: humidityValue,
+      temperature_water: waterTempValue,
+      temperature_air: airTempValue,
+      water_flow: waterflowValue
     };
 
     console.log('Submitting data:', data)
@@ -101,24 +125,34 @@ const AddAI: React.FC<AddAiProps> = (props) => {
       }
     } catch (error) {
       console.error('Error:', error);
-    } finally{
+    } finally {
       setSubmitLoading(false);
     }
   }
 
   useEffect(() => {
-    fetchClusters();
-  }, []);
+    const fetchClustersAndInitializeData = async () => {
+      try {
+        const response = await fetch('http://localhost:4000/clusters/all');
+        const data = await response.json();
+        setClusters(data);
+      } catch (error) {
+        console.error('Error fetching clusters:', error);
+      }
 
-  const fetchClusters = async () => {
-    try {
-      const response = await fetch('http://localhost:4000/clusters/all');
-      const data = await response.json();
-      setClusters(data);
-    } catch (error) {
-      console.error('Error fetching clusters:', error);
-    }
-  };
+      const initializeData = (length: number): DataItem[] =>
+        Array.from({ length }, (_, i) => ({ id: i + 1, value: 0 }));
+
+      setEcData(initializeData(dap));
+      setPhData(initializeData(dap));
+      setHumidityData(initializeData(dap));
+      setwaterTempData(initializeData(dap));
+      setairTempData(initializeData(dap));
+      setWaterflowData(initializeData(dap));
+    };
+
+    fetchClustersAndInitializeData();
+  }, [dap]);
 
   const generateRecommendations = async () => {
     setLoading(true);
@@ -136,13 +170,37 @@ const AddAI: React.FC<AddAiProps> = (props) => {
       console.log('OpenAI API Response:', data);
 
       if (data.recommendations) {
-        const { ec, ph, humidity, air_temperature, water_temperature, waterflow } = data.recommendations;
-        setEcData([{ id: 1, value: ec || 0}]);
-        setPhData([{ id: 1, value: ph || 0}]);
-        setHumidityData([{ id: 1, value: humidity || 0 }]);
-        setwaterTempData([{ id: 1, value: water_temperature || 0 }]);
-        setairTempData([{ id: 1, value: air_temperature || 0 }]);
-        setWaterflowData([{ id: 1, value: waterflow || 0 }]);
+        const { ec, ph, humidity, temperature_air, temperature_water, water_flow } = data.recommendations;
+
+        const initializeData = (length: number): DataItem[] =>
+          Array.from({ length }, (_, i) => ({ id: i + 1, value: 0 }));
+
+        setEcData(initializeData(dap));
+        setPhData(initializeData(dap));
+        setHumidityData(initializeData(dap));
+        setwaterTempData(initializeData(dap));
+        setairTempData(initializeData(dap));
+        setWaterflowData(initializeData(dap));
+
+        if (ec) {
+          setEcData([{ id: 1, value: ec }]);
+        }
+        if (ph) {
+          setPhData([{ id: 1, value: ph }]);
+        }
+        if (humidity) {
+          setHumidityData([{ id: 1, value: humidity }]);
+        }
+        if (temperature_air) {
+          setairTempData([{ id: 1, value: temperature_air }]);
+        }
+        if (temperature_water) {
+          setwaterTempData([{ id: 1, value: temperature_water }]);
+        }
+        if (water_flow) {
+          setWaterflowData([{ id: 1, value: water_flow }]);
+        }
+
         setRecommendations(data.recommendations);
       } else {
         setErrorMessage('No recommendations found. Please try generating again.');
@@ -155,22 +213,37 @@ const AddAI: React.FC<AddAiProps> = (props) => {
   };
 
 
+
   return (
     <Box p="4">
       <Flex direction="column" mb="6" fontSize="14px">
-      <FormControl mb="3">
-        <FormLabel fontSize="14px" fontWeight="bold">Cluster</FormLabel>
-         <Select
-          placeholder="Select Cluster"
-          _placeholder={{ color: 'gray.500' }}
-          size="sm"
-          value={clusterId}
-          onChange={(e) => setClusterId(e.target.value)}
-        >
-          {clusters.map(cluster => (
-            <option key={cluster.cluster_id} value={cluster.cluster_id}>{cluster.name}</option>
-          ))}
-        </Select>
+        <FormControl mb="3">
+          <FormLabel fontSize="14px" fontWeight="bold">Cluster</FormLabel>
+          <Select
+            placeholder="Select Cluster"
+            _placeholder={{ color: 'gray.500' }}
+            size="sm"
+            value={clusterId}
+            onChange={(e) => setClusterId(e.target.value)}
+          >
+            {clusters.map(cluster => (
+              <option key={cluster.cluster_id} value={cluster.cluster_id}>{cluster.name}</option>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl mb="3">
+          <FormLabel fontSize="14px" fontWeight="bold">Type Plant</FormLabel>
+          <Select
+            placeholder="Select Type Plant"
+            _placeholder={{ color: 'gray.500' }}
+            size="sm"
+            value={typePlant}
+            onChange={(e) => setTypePlant(e.target.value)}
+          >
+            <option value="Sayuran">Sayuran</option>
+            <option value="Buah-buahan">Buah-buahan</option>
+            <option value="Biji-bijian">Biji-bijian</option>
+          </Select>
         </FormControl>
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">Plant Name</FormLabel>
@@ -180,16 +253,6 @@ const AddAI: React.FC<AddAiProps> = (props) => {
             size="sm"
             value={plantName}
             onChange={(e) => setPlantName(e.target.value)}
-          />
-        </FormControl>
-        <FormControl mb="3">
-          <FormLabel fontSize="14px" fontWeight="bold">Type Plant</FormLabel>
-          <Input
-            placeholder="Type Plant"
-            _placeholder={{ color: 'gray.500' }}
-            size="sm"
-            value={typePlant}
-            onChange={(e) => setTypePlant(e.target.value)}
           />
         </FormControl>
         <FormControl mb="3">
@@ -243,10 +306,10 @@ const AddAI: React.FC<AddAiProps> = (props) => {
           {showHumidity && (
             <Tab fontSize="14px">Humidity</Tab>
           )}
-          {showAirTemp &&(
+          {showAirTemp && (
             <Tab fontSize="14px">Air Temperature</Tab>
           )}
-          {showWaterTemp &&(
+          {showWaterTemp && (
             <Tab fontSize="14px">Water Temperature</Tab>
           )}
           {showWaterflow && (
@@ -271,15 +334,22 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>EC Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...ecData];
-                            newData[index].value = Number(e.target.value);
-                            setEcData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, ecData, setEcData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setEcData(ecData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, ecData, setEcData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, ecData, setEcData)}>Delete</Button>
@@ -308,15 +378,22 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>pH Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...phData];
-                            newData[index].value = Number(e.target.value);
-                            setPhData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, phData, setPhData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setPhData(phData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, phData, setPhData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, phData, setPhData)}>Delete</Button>
@@ -345,15 +422,22 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>Humidity Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...humidityData];
-                            newData[index].value = Number(e.target.value);
-                            setHumidityData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, humidityData, setHumidityData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setHumidityData(humidityData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, humidityData, setHumidityData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, humidityData, setHumidityData)}>Delete</Button>
@@ -382,15 +466,22 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>Air Temperature Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...airTempData];
-                            newData[index].value = Number(e.target.value);
-                            setairTempData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, airTempData, setairTempData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setairTempData(airTempData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, airTempData, setairTempData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, airTempData, setairTempData)}>Delete</Button>
@@ -419,15 +510,22 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>Water Temperature Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...waterTempData];
-                            newData[index].value = Number(e.target.value);
-                            setwaterTempData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, waterTempData, setwaterTempData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setwaterTempData(waterTempData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, waterTempData, setwaterTempData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, waterTempData, setwaterTempData)}>Delete</Button>
@@ -456,15 +554,22 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>{item.id}</Td>
                       <Td>Waterflow Value DAP {item.id}</Td>
                       <Td>
-                        <Input
-                          size="sm"
-                          value={item.value}
-                          onChange={(e) => {
-                            const newData = [...waterflowData];
-                            newData[index].value = Number(e.target.value);
-                            setWaterflowData(newData);
-                          }}
-                        />
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, waterflowData, setWaterflowData)}>-</Button>
+
+                          <Input
+                            value={item.value}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setWaterflowData(waterflowData.map(d => d.id === item.id ? { ...d, value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="40px"
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, waterflowData, setWaterflowData)}>+</Button>
+                        </Flex>
                       </Td>
                       <Td>
                         <Button colorScheme="red" size="xs" onClick={() => handleDeleteData(item.id, waterflowData, setWaterflowData)}>Delete</Button>
@@ -496,9 +601,9 @@ const AddAI: React.FC<AddAiProps> = (props) => {
           <p>EC: {recommendations.ec}</p>
           <p>pH: {recommendations.ph}</p>
           <p>Humidity: {recommendations.humidity}%</p>
-          <p>Air Temperature: {recommendations.air_temperature}°C</p>
-          <p>Water Temperature: {recommendations.water_temperature}°C</p>
-          <p>Waterflow: {recommendations.waterflow}</p>
+          <p>Air Temperature: {recommendations.temperature_air}°C</p>
+          <p>Water Temperature: {recommendations.temperature_water}°C</p>
+          <p>Waterflow: {recommendations.water_flow}</p>
         </div>
       )}
     </Box>

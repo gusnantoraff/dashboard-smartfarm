@@ -1,26 +1,36 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { ConfigSensor } from './entities/config-sensor.entity';
 import { CreateConfigSensorDto } from './dto/create-config-sensor.dto';
 import { UpdateConfigSensorDto } from './dto/update-config-sensor.dto';
 
 @Injectable()
 export class ConfigSensorService {
-  create(createConfigSensorDto: CreateConfigSensorDto) {
-    return 'This action adds a new configSensor';
+  constructor(
+    @InjectRepository(ConfigSensor)
+    private readonly configSensorRepository: Repository<ConfigSensor>,
+  ) {}
+
+  async findAll(): Promise<ConfigSensor[]> {
+    return this.configSensorRepository.find();
   }
 
-  findAll() {
-    return `This action returns all configSensor`;
+  async findOne(id: string): Promise<ConfigSensor> {
+    return this.configSensorRepository.findOne({ where: { config_sensor_id:id } });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} configSensor`;
+  async create(createConfigSensorDto: CreateConfigSensorDto): Promise<ConfigSensor> {
+    const configSensor = this.configSensorRepository.create(createConfigSensorDto);
+    return this.configSensorRepository.save(configSensor);
   }
 
-  update(id: number, updateConfigSensorDto: UpdateConfigSensorDto) {
-    return `This action updates a #${id} configSensor`;
+  async update(id: string, updateConfigSensorDto: UpdateConfigSensorDto): Promise<ConfigSensor> {
+    await this.configSensorRepository.update(id, updateConfigSensorDto);
+    return this.findOne(id);
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} configSensor`;
+  async remove(id: string): Promise<void> {
+    await this.configSensorRepository.delete(id);
   }
 }

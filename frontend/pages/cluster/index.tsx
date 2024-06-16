@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/layouts/Dashboard.layout';
-import { Flex, Button, Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton, FormControl, FormLabel, Input, Select, AlertDialog, AlertDialogOverlay, AlertDialogContent, AlertDialogHeader, AlertDialogBody, AlertDialogFooter, AlertDialogCloseButton } from '@chakra-ui/react';
+import { Flex, Button, Modal, ModalOverlay, ModalContent, ModalHeader, ModalFooter, ModalBody, ModalCloseButton, FormControl, FormLabel, Input, Select } from '@chakra-ui/react';
 import SearchInput from '@/components/SearchInput';
 import axios from 'axios';
 import Table from '@/components/Table';
-import { ClusterDetail } from '@/components/ClusterDetail'; // Import ClusterDetail component
 import FilterDropdown from '@/components/FilterDropdown';
 import { HStack } from '@chakra-ui/react';
 import DeleteButton from '@/components/DeleteButton';
+import { useRouter } from 'next/router';
+import { User } from '@/hooks/useUser';
+import Cookies from 'js-cookie';
 
 interface Cluster {
   cluster_id: string;
@@ -20,6 +22,7 @@ interface Cluster {
 }
 
 const ClusterPage = () => {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [pagination, setPagination] = useState({
@@ -39,11 +42,8 @@ const ClusterPage = () => {
     devicesCount: 0,
     owner: ''
   });
-
-  const cancelRef = useRef<HTMLButtonElement>(null);
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedClusterDetail, setSelectedClusterDetail] = useState<Cluster | null>(null);
-  const [error, setError] = useState('');
+  const [currentUser, setCurrentUser] = useState<User>();
 
   const toggleModal = () => {
     setIsModalOpen(!isModalOpen);
@@ -51,38 +51,46 @@ const ClusterPage = () => {
 
   useEffect(() => {
     fetchClusters();
+    fetchCurrentUser();
   }, [pagination.page]);
+
+  const token = Cookies.get('token');
+
+  const fetchCurrentUser = async () => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      const response = await axios.get('http://localhost:4000/users/me', config);
+      setCurrentUser(response.data);
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  };
+  console.log('user',currentUser);
 
   const fetchClusters = async () => {
     try {
-      let allClusters: Cluster[] = [];
-      let currentPage = 1;
-      let totalPages = 1;
-
-      while (currentPage <= totalPages) {
       const response = await axios.get(`http://localhost:4000/clusters/`, {
         params: {
-          page: currentPage,
+          page: pagination.page,
           take: pagination.take,
-         },
+        },
       });
-
+  
       const { data, meta } = response.data;
-
+  
       if (Array.isArray(data)) {
-        allClusters = [...allClusters, ...data]; 
-        totalPages = meta.pageCount;
-        currentPage++;
+        setClusters(data);
         setPagination(meta);
-      }  else {
-        setError('Invalid data format');
-        return;
+      } else {
+        console.error('Error fetching clusters:');
       }
-    }
-    setClusters(allClusters);
     } catch (error) {
       console.error('Error fetching clusters:', error);
-    } 
+    }
   };
 
   const handlePageChange = (page: number) => {
@@ -94,7 +102,10 @@ const ClusterPage = () => {
 
   const handleAddCluster = async (formData: Cluster) => {
     try {
-      const response = await axios.post(`http://localhost:4000/clusters/`, formData);
+      const response = await axios.post(`http://localhost:4000/clusters/`,{
+        ...formData,
+        owner: currentUser?.name 
+      });
       setClusters([...clusters, response.data]);
       toggleModal();
     } catch (error) {
@@ -133,7 +144,7 @@ const ClusterPage = () => {
   };
 
   const handleViewDetail = (cluster: Cluster) => {
-    setSelectedClusterDetail(cluster);
+    router.push(`/cluster/${cluster.cluster_id}`);
   };
 
   /*const filteredClusters = clusters.filter(cluster =>
@@ -241,16 +252,6 @@ const ClusterPage = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
-      {selectedClusterDetail && (
-        <ClusterDetail
-          clusterId={selectedClusterDetail.cluster_id}
-          name={selectedClusterDetail.name}
-          timezone={selectedClusterDetail.timezone}
-          latitude={selectedClusterDetail.latitude}
-          longitude={selectedClusterDetail.longitude}
-          owner={selectedClusterDetail.owner}
-        />
-      )}
     </DashboardLayout>
   );
 };

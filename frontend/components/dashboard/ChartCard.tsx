@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Skeleton, Tab, TabList, Tabs, Text } from '@chakra-ui/react';
+import { Box, Skeleton, Tab, TabList, Tabs, Text, useToast } from '@chakra-ui/react';
 import Select from '@/components/Select';
 import { parseToOption } from '@/utils/parseToOptions';
 import DetailItem from '@/components/Detailitem';
@@ -7,62 +7,116 @@ import LinkBox from '@/components/LinkBox';
 import dayjs from 'dayjs';
 import useMqtt from '@/hooks/useMqtt';
 import { MqttPayloadType } from '@/types';
-import { DetailControllerResponse } from '@/hooks/useController';
-import { DetailClusterResponse } from '@/hooks/useCluster';
 import Datepicker from '../Datepicker';
-import Table, { Columns } from '../Table';
+import Table from '../Table';
 import TemperatureChart from './TemperatureChart';
 import HumidityChart from './HumidityChart';
 import EcChart from './EcChart';
 import PhChart from './PhChart';
+import axios from 'axios';
+
+type Columns = {
+  name: string;
+  selector: (row: any) => any;
+};
 
 type Props = {
-  data: DetailControllerResponse | undefined;
-  cluster: DetailClusterResponse | undefined;
-  setControllerId: (value: any) => void;
+  clusterId?: string | null;
+  pagination: {
+    page: number;
+    take: number;
+    itemCount: number;
+    pageCount: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+  };
+  onPageChange: (page: number) => void;
 };
 
 const StatusComponent = ({ status }: { status: boolean | undefined }) => {
   return (
     <div
-      className={`${
-        status ? 'bg-[#84FDAA73] text-[#1D976C]' : 'bg-[#FFCDCD] text-[#F83E33]'
-      } w-[50px] h-[24px] rounded-[4px] flex justify-center items-center`}
+      className={`${status ? 'bg-[#84FDAA73] text-[#1D976C]' : 'bg-[#FFCDCD] text-[#F83E33]'
+        } w-[50px] h-[24px] rounded-[4px] flex justify-center items-center`}
     >
       <span className='font-semibold text-xs'>{status ? 'ON' : 'OFF'}</span>
     </div>
   );
 };
 
-export default function ChartCard({ data, cluster, setControllerId }: Props) {
+export default function ChartCard({ clusterId, pagination, onPageChange }: Props) {
   const { mqtt } = useMqtt();
+  const toast = useToast();
   const [payload, setPayload] = useState<MqttPayloadType>();
   const [loadingChart, setLoadingChart] = useState<boolean>(true);
-
   const [tabIdx, setTabIdx] = useState<number>(0);
+  const [clusters, setCluster] = useState<any>(null);
+  const [controllers, setController] = useState<any>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
+
+  const [selectedControllerId, setSelectedControllerId] = useState<string | null>(null);
+
+  const fetchCluster = async () => {
+    if (clusterId) {
+      setLoading(true);
+      try {
+        const clusterResponse = await axios.get(`http://localhost:4000/clusters/${clusterId}`);
+        setCluster(clusterResponse.data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching cluster data:', error);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  const fetchController = async () => {
+    if (selectedControllerId) {
+      try {
+        const controllerResponse = await axios.get(`http://localhost:4000/controllers/${selectedControllerId}`);
+        setController(controllerResponse.data);
+      } catch (error) {
+        console.error('Error fetching controller data:', error);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   useEffect(() => {
-    if (mqtt) {
-      const controllerName = data?.DetailController?.name;
-      mqtt.on('message', (_, message) => {
+    if (clusterId) {
+      fetchCluster();
+    }
+    fetchController();
+  }, [clusterId, selectedControllerId]);
+
+  useEffect(() => {
+    if (mqtt && controllers?.name) {
+      const controllerName = controllers.name;
+      const messageHandler = (_: any, message: { toString: () => string; }) => {
         const mqttPayload: MqttPayloadType = JSON.parse(message.toString());
         if (
           mqttPayload.from === controllerName &&
-          mqttPayload.action_type === 'controller_log'
+          mqttPayload.action_type === 'log_controller'
         ) {
           setPayload(mqttPayload);
         }
-      });
+      };
+      mqtt.off('message', messageHandler);
     }
-  }, [mqtt, data]);
+  }, [mqtt, controllers, clusters]);
 
   const columns = useMemo<Columns[]>(() => {
     const tempColumns: Columns[] = [
       {
         name: 'Name',
-        selector: () =>
-          data?.DetailController?.name.split('/')?.[1] ||
-          data?.DetailController?.name,
+        selector: (row) =>
+          controllers?.name.split('/')?.[1] ||
+          controllers?.name,
       },
       {
         name: 'Date',
@@ -88,7 +142,7 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
           {
             name: 'Air Temperature',
             selector: (row) => row.airTemperature,
-          },
+          }
         );
         break;
       case 1:
@@ -119,7 +173,7 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
     });
 
     return tempColumns;
-  }, [tabIdx, data]);
+  }, [tabIdx, controllers]);
 
   const dummyData = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => ({
@@ -132,18 +186,18 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
       airTemperature: Math.floor(Math.random() * 100) + 1,
       status: 'Dummy data',
     }));
-  }, [data]);
+  }, [controllers]);
 
   const getChartByIdx = (idx: number) => {
     switch (idx) {
       case 0:
-        return <TemperatureChart data={data} payload={payload} />;
+        return <TemperatureChart payload={payload} controllerData={controllers}/>;
       case 1:
-        return <HumidityChart data={data} payload={payload} />;
+        return <HumidityChart payload={payload} controllerData={controllers}/>;
       case 2:
-        return <EcChart data={data} payload={payload} />;
+        return <EcChart payload={payload} controllerData={controllers}/>;
       case 3:
-        return <PhChart data={data} payload={payload} />;
+        return <PhChart payload={payload} controllerData={controllers}/>;
       default:
         return (
           <Box
@@ -176,6 +230,22 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
     };
   }, [tabIdx, payload]);
 
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: 'Error Occurred',
+        description: 'An error occurred while fetching data',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    }
+  }, [loading, error, toast]);
+
+  if (loading) {
+    return <Skeleton w="100%" h="520px" />;
+  }
+
   return (
     <div className='p-4'>
       <div className='border border-[#C4C4C4] rounded-lg'>
@@ -189,9 +259,7 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
             >
               <Tab
                 key={0}
-                onClick={() => {
-                  setTabIdx(0);
-                }}
+                onClick={() => setTabIdx(0)}
                 py='15px'
                 fontSize={'14px'}
                 _selected={{
@@ -205,16 +273,13 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
               >
                 <span>Temperature</span>
                 <div
-                  className={`absolute h-1 bottom-[1.4px] rounded-t-[10px] bg-primary w-[64px] transition-all duration-150 ${
-                    tabIdx === 0 ? 'opacity-100' : 'opacity-0'
-                  }`}
+                  className={`absolute h-1 bottom-[1.4px] rounded-t-[10px] bg-primary w-[64px] transition-all duration-150 ${tabIdx === 0 ? 'opacity-100' : 'opacity-0'
+                    }`}
                 />
               </Tab>
               <Tab
                 key={1}
-                onClick={() => {
-                  setTabIdx(1);
-                }}
+                onClick={() => setTabIdx(1)}
                 py='15px'
                 fontSize={'14px'}
                 _selected={{
@@ -228,16 +293,13 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
               >
                 <span>Humidity</span>
                 <div
-                  className={`absolute h-1 bottom-[1.4px] rounded-t-[10px] bg-primary w-[64px] transition-all duration-150 ${
-                    tabIdx === 1 ? 'opacity-100' : 'opacity-0'
-                  }`}
+                  className={`absolute h-1 bottom-[1.4px] rounded-t-[10px] bg-primary w-[64px] transition-all duration-150 ${tabIdx === 1 ? 'opacity-100' : 'opacity-0'
+                    }`}
                 />
               </Tab>
               <Tab
                 key={2}
-                onClick={() => {
-                  setTabIdx(2);
-                }}
+                onClick={() => setTabIdx(2)}
                 py='15px'
                 fontSize={'14px'}
                 _selected={{
@@ -251,16 +313,13 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
               >
                 <span>EC Status</span>
                 <div
-                  className={`absolute h-1 bottom-[1.4px] rounded-t-[10px] bg-primary w-[64px] transition-all duration-150 ${
-                    tabIdx === 2 ? 'opacity-100' : 'opacity-0'
-                  }`}
+                  className={`absolute h-1 bottom-[1.4px] rounded-t-[10px] bg-primary w-[64px] transition-all duration-150 ${tabIdx === 2 ? 'opacity-100' : 'opacity-0'
+                    }`}
                 />
               </Tab>
               <Tab
                 key={3}
-                onClick={() => {
-                  setTabIdx(3);
-                }}
+                onClick={() => setTabIdx(3)}
                 py='15px'
                 fontSize={'14px'}
                 _selected={{
@@ -273,9 +332,8 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
               >
                 <span>pH Status</span>
                 <div
-                  className={`absolute h-1 bottom-[1.4px] rounded-t-[10px] bg-primary w-[64px] transition-all duration-150 ${
-                    tabIdx === 3 ? 'opacity-100' : 'opacity-0'
-                  }`}
+                  className={`absolute h-1 bottom-[1.4px] rounded-t-[10px] bg-primary w-[64px] transition-all duration-150 ${tabIdx === 3 ? 'opacity-100' : 'opacity-0'
+                    }`}
                 />
               </Tab>
             </TabList>
@@ -285,40 +343,37 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
         <div className='flex flex-col-reverse lg:flex-row'>
           <div className='min-h-[492px] border-r border-r-[#C4C4C4] flex-1 lg:flex-[0.3] pb-3'>
             <div className='pl-4 pt-4 pr-4'>
-              <Select
-                h='40px'
-                bg='other.02'
-                mb='16px'
-                options={parseToOption(
-                  cluster?.DetailCluster?.controllers || [],
-                  'name',
-                  'id',
-                )}
-                onSelect={(value) => {
-                  setControllerId(value);
-                }}
-                selected={data?.DetailController?.id}
-              />
-
-              <DetailItem.Border small />
-
-              <p className='text-sm text-[#929EAE] font-medium'>
-                ID&nbsp;
-                <span className='text-[#929EAE] font-semibold'>
-                  {data?.DetailController?.id.split('-')?.[0] ||
-                    data?.DetailController?.id}
-                </span>
-              </p>
-              <div className='flex w-full justify-between'>
-                <LinkBox href={`/controller/${data?.DetailController?.id}`}>
-                  <Text fontSize={'20px'} color={'primary'} fontWeight={600}>
-                    {data?.DetailController?.name?.split('/')?.[1] ||
-                      data?.DetailController?.name}
-                  </Text>
-                </LinkBox>
-              </div>
-
-              <DetailItem.Border small />
+              {clusters?.controllers && (
+                <>
+                  <Select
+                    h='40px'
+                    bg='other.02'
+                    mb='16px'
+                    options={parseToOption(clusters.controllers, 'name', 'controller_id')}
+                    onSelect={(value: any) => {
+                      setSelectedControllerId(value);
+                    }}
+                    selected={selectedControllerId}
+                  />
+                  <DetailItem.Border small />
+                  <p className='text-sm text-[#929EAE] font-medium'>
+                    ID&nbsp;
+                    <span className='text-[#929EAE] font-semibold'>
+                      {controllers?.controller_id.split('-')?.[0] ||
+                        controllers?.controller_id}
+                    </span>
+                  </p>
+                  <div className='flex w-full justify-between'>
+                    <LinkBox href={`/controller/${controllers?.controller_id}`}>
+                      <Text fontSize={'20px'} color={'primary'} fontWeight={600}>
+                        {controllers?.name.split('/')?.[1] ||
+                          controllers?.name}
+                      </Text>
+                    </LinkBox>
+                  </div>
+                  <DetailItem.Border small />
+                </>
+              )}
             </div>
 
             <DetailItem
@@ -330,7 +385,7 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
               loading={!payload}
               gray
               label='DAP'
-              value={`${payload?.dap_days} Days ${payload?.dap_time}`}
+              value={`${payload?.dap_count} Days ${payload?.dap_time}`}
             />
             <DetailItem
               loading={!payload}
@@ -382,7 +437,7 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
           <div className='w-full flex gap-2 mb-4'>
             <Select
               options={parseToOption(['Daily', 'Weekly'])}
-              onSelect={() => {}}
+              onSelect={() => { }}
               bg='other.02'
               h='40px'
               w='160px'
@@ -391,7 +446,7 @@ export default function ChartCard({ data, cluster, setControllerId }: Props) {
             <Datepicker bg='other.02' h='40px' w='266px' />
           </div>
 
-          <Table data={dummyData} columns={columns} />
+          <Table data={dummyData} columns={columns} pagination={pagination} onPageChange={onPageChange} />
         </div>
       </div>
     </div>

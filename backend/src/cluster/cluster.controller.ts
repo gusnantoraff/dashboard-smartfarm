@@ -30,8 +30,8 @@ export class ClusterController {
   }
 
   @Get(':id')
-  async getClusterById(@Param('id') id: string) {
-    return this.clusterService.getClusterById(id);
+  async getDetailCluster(@Param('id') id: string) {
+    return this.clusterService.getDetailCluster(id);
   }
 
   @Put(':id')
@@ -42,5 +42,10 @@ export class ClusterController {
   @Delete(':id')
   async delete(@Param('id') id: string): Promise<string> {
     return this.clusterService.delete(id);
+  }
+
+  @Delete()
+  deleteAll(){
+    return this.clusterService.deleteAll();
   }
 }

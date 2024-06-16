@@ -6,10 +6,13 @@ import SearchInput from '@/components/SearchInput';
 import FilterDropdown from '@/components/FilterDropdown';
 import { Badge, Button, Flex, HStack, Text, Tabs, TabList, Tab, TabPanels, TabPanel, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter } from '@chakra-ui/react';
 import AddTemplateForm from '@/components/AddTemplateForm';
-import AddAI from '@/components/AddAI';  // Import komponen AddAI
+import AddAI from '@/components/AddAI';
 import axios from 'axios';
-import Table from '@/components/Table'; // Import komponen Table
+import Table from '@/components/Table';
 import DeleteButton from '@/components/DeleteButton';
+import TemplateDetail from '@/components/TemplateDetail';
+import Link from '@/components/Link';
+import { LogController } from '../../../backend/src/log-controller/entities/log-controller.entity';
 
 interface PaginationState {
   page: number;
@@ -34,9 +37,9 @@ type AddControllerValues = {
 const ControllerPage: React.FC = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false); // Untuk modal tambah template baru
-  const [isManualInput, setIsManualInput] = useState(false); // Untuk mengontrol tampilan form input manual
-  const [isGenerateAI, setIsGenerateAI] = useState(false); // Untuk mengontrol tampilan form input AI
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isManualInput, setIsManualInput] = useState(false);
+  const [isGenerateAI, setIsGenerateAI] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
     take: 10,
@@ -49,20 +52,31 @@ const ControllerPage: React.FC = () => {
   const [error, setError] = useState<any>(null);
   const [templates, setTemplates] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState(0);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>(undefined);
+
 
   useEffect(() => {
     fetchControllers();
   }, [pagination.page]);
 
+  useEffect(() => {
+    fetchTemplates();
+  }, [pagination.page]);
+
   const fetchControllers = async () => {
     try {
-      const response = await axios.get('http://localhost:4000/controllers/all', {
+      const response = await axios.get('http://localhost:4000/controllers', {
         params: {
           page: pagination.page,
           take: pagination.take,
         },
       });
-      setData(response.data);
+      const { data, meta } = response.data;
+
+      if (Array.isArray(data)) {
+        setData(data);
+        setPagination(meta);
+      }
     } catch (error) {
       console.error('Error fetching controllers:', error);
       setError(error);
@@ -71,12 +85,41 @@ const ControllerPage: React.FC = () => {
 
   const fetchTemplates = async () => {
     try {
-      const response = await axios.get('http://localhost:4000/templates/all');
-      setTemplates(response.data);
+      const response = await axios.get('http://localhost:4000/templates', {
+        params: {
+          page: pagination.page,
+          take: pagination.take,
+        },
+      });
+      const { data, meta } = response.data;
+
+      if (Array.isArray(data)) {
+        const templatesWithDetails = await Promise.all(
+          data.map(async (template: any) => {
+            const details = await fetchTemplateDetails(template.template_id);
+            return { ...template, ...details };
+          })
+        );
+
+        setTemplates(templatesWithDetails);
+        setPagination(meta);
+        console.log('detail', templatesWithDetails);
+      }
     } catch (error) {
       console.error('Error fetching templates:', error);
     }
   };
+
+  const fetchTemplateDetails = async (templateId: string) => {
+    try {
+      const response = await axios.get(`http://localhost:4000/templates/details/${templateId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching template details:', error);
+      throw error;
+    }
+  };
+
 
   const getTotalDevices = async (cluster_id: string): Promise<number> => {
     try {
@@ -121,8 +164,9 @@ const ControllerPage: React.FC = () => {
   };
 
   const handleViewDetail = (id: string, type: 'template' | 'controller') => {
-    // logika view detail
-    console.log(`View details of ${type} with id: ${id}`);
+    if (type === 'template') {
+      setSelectedTemplateId(id);
+    }
   };
 
   const handleDelete = async (templateId: string) => {
@@ -134,32 +178,40 @@ const ControllerPage: React.FC = () => {
     }
   };
 
-  const renderTemplateList = (config: any) => {
-    if (!config) return 'N/A';
+  const renderTemplateList = (logControllers: any) => {
+    if (!logControllers || !logControllers.length) return 'N/A';
 
     return (
       <div>
-        <div>EC: {config.ec ?? 'N/A'}</div>
-        <div>pH: {config.ph ?? 'N/A'}</div>
-        <div>Humidity: {config.humidity !== undefined ? `${config.humidity}%` : 'N/A'}</div>
-        <div>Air Temp: {config.airTemperature !== undefined ? `${config.airTemperature}°C` : 'N/A'}</div>
-        <div>Water Temp: {config.waterTemperature !== undefined ? `${config.waterTemperature}°C` : 'N/A'}</div>
-        <div>Waterflow: {config.waterflow ?? 'N/A'} L/m</div>
+        {logControllers.map((logController: any, index: number) => (
+          <div key={index}>
+            <div>EC: {logController.ec !== undefined ? logController.ec : 'N/A'}</div>
+            <div>pH: {logController.ph !== undefined ? logController.ph : 'N/A'}</div>
+            <div>Humidity: {logController.humidity !== undefined ? `${logController.humidity}%` : 'N/A'}</div>
+            <div>Air Temp: {logController.temperature_air !== undefined ? `${logController.temperature_air}°C` : 'N/A'}</div>
+            <div>Water Temp: {logController.temperature_water !== undefined ? `${logController.temperature_water}°C` : 'N/A'}</div>
+            <div>Waterflow: {logController.water_flow !== undefined ? `${logController.water_flow} L/m` : 'N/A'}</div>
+          </div>
+        ))}
       </div>
     );
   };
 
-  const renderGeneratedTemplateList = (config: any, is_active: boolean) => {
-    if (!config) return 'N/A';
+  const renderGeneratedTemplateList = (logControllers: any) => {
+    if (!logControllers || !logControllers.length) return 'N/A';
 
     return (
       <div>
-        <div>EC: {config.ecData?.[0]?.value ?? 'N/A'}</div>
-        <div>pH: {config.phData?.[0]?.value ?? 'N/A'}</div>
-        <div>Humidity: {config.humidityData?.[0]?.value !== undefined ? `${config.humidityData?.[0]?.value}%` : 'N/A'}</div>
-        <div>Air Temp: {config.airTempData?.[0]?.value !== undefined ? `${config.airTempData?.[0]?.value}°C` : 'N/A'}</div>
-        <div>Water Temp: {config.waterTempData?.[0]?.value !== undefined ? `${config.waterTempData?.[0]?.value}°C` : 'N/A'}</div>
-        <div>Waterflow: {config.waterflowData?.[0]?.value ?? 'N/A'} L/m</div>
+        {logControllers.map((logController: any, index: number) => (
+          <div key={index}>
+            <div>EC: {logController.ec !== undefined ? logController.ec : 'N/A'}</div>
+            <div>pH: {logController.ph !== undefined ? logController.ph : 'N/A'}</div>
+            <div>Humidity: {logController.humidity !== undefined ? `${logController.humidity}%` : 'N/A'}</div>
+            <div>Air Temp: {logController.temperature_air !== undefined ? `${logController.temperature_air}°C` : 'N/A'}</div>
+            <div>Water Temp: {logController.temperature_water !== undefined ? `${logController.temperature_water}°C` : 'N/A'}</div>
+            <div>Waterflow: {logController.water_flow !== undefined ? `${logController.water_flow} L/m` : 'N/A'}</div>
+          </div>
+        ))}
       </div>
     );
   };
@@ -180,23 +232,35 @@ const ControllerPage: React.FC = () => {
   };
 
   const handlePageChange = (page: number) => {
-    setPagination({ ...pagination, page });
+    setPagination((prevPagination) => ({
+      ...prevPagination,
+      page,
+    }));
   };
+
 
   // kolom Controller
   const controllerColumns = [
-    { name: '#No', selector: (row: any, idx: number) => idx + 1, width: 'w-1/12' },
+    {
+      name: '#No', selector: (_: any, idx: number) => {
+        const page = pagination.page || 1;
+        const limit = pagination.take || 10;
+        const offset = (page - 1) * limit;
+        return String(idx + 1 + offset).padStart(2, '0');
+      },
+    },
     { name: 'Controller Name', selector: (row: any) => row.name.split('/')?.[1] ?? row.name, width: 'w-2/12' },
     { name: 'Cluster', selector: (row: any) => row.cluster.name || '', width: 'w-2/12' },
     { name: 'Template Name', selector: (row: any) => row.template.name || '', width: 'w-2/12' },
-    { name: 'DAP', selector: (row: any) => row.dap_count ? `${row.dap_count} Days` : '', width: 'w-2/12' },
-    { name: 'Status',
+    { name: 'DAP', selector: (row: any) => row.template.dap_count ? `${row.template.dap_count} Days` : '', width: 'w-2/12' },
+    {
+      name: 'Status',
       selector: (row: any) => (
-        <Badge 
-          variant={'solid'} 
-          colorScheme={row.is_active ? 'green' : 'red'} 
-          sx={{ 
-            backgroundColor: 'gray.200', 
+        <Badge
+          variant={'solid'}
+          colorScheme={row.is_active ? 'green' : 'red'}
+          sx={{
+            backgroundColor: 'gray.200',
             color: 'green.400',
             fontWeight: '600',
             fontSize: '12px',
@@ -210,20 +274,22 @@ const ControllerPage: React.FC = () => {
       ),
       width: 'w-2/12'
     },
-    
+
     {
       name: 'Action',
       selector: (row: any) => (
         <>
-          <Button variant='solid'
-            bg={'secondary'}
-            borderRadius={'full'}
-            color='white'
-            _hover={{ bg: 'secondary_hover' }}
-            size={'sm'}
-            onClick={() => handleViewDetail(row.controller_id, 'controller')}>
-            View Detail
-          </Button>
+          <Link target='_blank' href={`/controller/${row.controller_id}`}>
+            <Button variant='solid'
+              bg={'secondary'}
+              borderRadius={'full'}
+              color='white'
+              _hover={{ bg: 'secondary_hover' }}
+              size={'sm'}
+            >
+              View Detail
+            </Button>
+          </Link>
         </>
       ),
       width: 'w-1/12'
@@ -232,16 +298,27 @@ const ControllerPage: React.FC = () => {
 
   //kolom Template
   const templateColumns = [
-    { name: '#No', selector: (row: any, idx: number) => idx + 1, width: 'w-1/6' },
+    {
+      name: '#No', selector: (_: any, idx: number) => {
+        const page = pagination.page || 1;
+        const limit = pagination.take || 10;
+        const offset = (page - 1) * limit;
+        return String(idx + 1 + offset).padStart(2, '0');
+      },
+    },
     { name: 'Template Name', selector: (row: any) => row.name, width: 'w-2/6' },
     { name: 'DAP', selector: (row: any) => row.dap_count ? `${row.dap_count} Days` : '', width: 'w-1/6' },
     {
       name: 'Template List',
       selector: (row: any) => (
         <>
-          {row.is_active
-            ? renderTemplateList(row.config_ec_dap)
-            : renderGeneratedTemplateList(row.config_ec_dap, row.is_active)}
+          {row.controllers.map((controller: any, index: number) => (
+            <div key={index}>
+              {row.is_active
+                ? renderTemplateList(controller.logControllers)
+                : renderGeneratedTemplateList(controller.logControllers)}
+            </div>
+          ))}
         </>
       ),
       width: 'w-2/6'
@@ -259,22 +336,22 @@ const ControllerPage: React.FC = () => {
       name: 'Action',
       selector: (row: any) => (
         <>
-         <Flex>
-          <Button variant='solid'
-            bg={'secondary'}
-            borderRadius={'full'}
-            color='white'
-            _hover={{ bg: 'secondary_hover' }}
-            size={'sm'}
-            onClick={() => handleViewDetail(row.template_id, 'template')}
-            mr={1}
+          <Flex>
+            <Button variant='solid'
+              bg={'secondary'}
+              borderRadius={'full'}
+              color='white'
+              _hover={{ bg: 'secondary_hover' }}
+              size={'sm'}
+              onClick={() => handleViewDetail(row.template_id, 'template')}
+              mr={1}
             >
-            View Detail
-          </Button>
-          <DeleteButton
-            title='Delete Template'
-            onDelete={() => handleDelete(row.template_id)}
-          />
+              View Detail
+            </Button>
+            <DeleteButton
+              title='Delete Template'
+              onDelete={() => handleDelete(row.template_id)}
+            />
           </Flex>
         </>
       ),
@@ -290,7 +367,6 @@ const ControllerPage: React.FC = () => {
         schema={{
           cluster_id: '',
           template_id: '',
-          dap_count: '',
           is_active: true
         }}
         open={isOpen}
@@ -299,13 +375,12 @@ const ControllerPage: React.FC = () => {
       >
         <FormItem.ClusterDropdown name="cluster_id" placeholder="Cluster" />
         <FormItem.TemplateDropdown name="template_id" placeholder="Template" />
-        <FormItem.Input name="dap_count" type="number" placeholder="DAP" />
       </AddModal>
 
       {/* Modal Tambah Template Baru */}
       <Modal isOpen={isAddModalOpen} onClose={() => { setIsAddModalOpen(false); setIsManualInput(false); setIsGenerateAI(false); }}>
         <ModalOverlay />
-        <ModalContent>
+        <ModalContent maxW="600px">
           <ModalHeader>Add New Template</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
@@ -315,7 +390,7 @@ const ControllerPage: React.FC = () => {
                 <Button colorScheme="blue" variant="outline" mb="9" w="60%" borderRadius="20px" onClick={() => setIsGenerateAI(true)}> Generate Dengan AI </Button>
               </Flex>
             ) : isManualInput ? (
-              <AddTemplateForm handleAddTemplateOrAI={handleAddTemplateOrAI}/>
+              <AddTemplateForm handleAddTemplateOrAI={handleAddTemplateOrAI} />
             ) : (
               <AddAI handleAddTemplateOrAI={handleAddTemplateOrAI} />
             )}
@@ -380,10 +455,11 @@ const ControllerPage: React.FC = () => {
             {String(error)}
           </Text>
         )}
+
+        <TemplateDetail id={selectedTemplateId} />
       </div>
     </DashboardLayout>
   );
 };
 
 export default ControllerPage;
-
