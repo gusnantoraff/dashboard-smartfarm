@@ -12,7 +12,6 @@ import Table from '@/components/Table';
 import DeleteButton from '@/components/DeleteButton';
 import TemplateDetail from '@/components/TemplateDetail';
 import Link from '@/components/Link';
-import { LogController } from '../../../backend/src/log-controller/entities/log-controller.entity';
 
 interface PaginationState {
   page: number;
@@ -103,7 +102,7 @@ const ControllerPage: React.FC = () => {
 
         setTemplates(templatesWithDetails);
         setPagination(meta);
-        console.log('detail', templatesWithDetails);
+        console.log('detail', templates);
       }
     } catch (error) {
       console.error('Error fetching templates:', error);
@@ -312,13 +311,13 @@ const ControllerPage: React.FC = () => {
       name: 'Template List',
       selector: (row: any) => (
         <>
-          {row.controllers.map((controller: any, index: number) => (
-            <div key={index}>
+          {row.controllers.length > 0 && (
+            <div>
               {row.is_active
-                ? renderTemplateList(controller.logControllers)
-                : renderGeneratedTemplateList(controller.logControllers)}
+                ? renderTemplateList(row.controllers[0].logControllers)
+                : renderGeneratedTemplateList(row.controllers[0].logControllers)}
             </div>
-          ))}
+          )}
         </>
       ),
       width: 'w-2/6'

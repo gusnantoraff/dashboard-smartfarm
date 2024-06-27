@@ -106,9 +106,14 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
           setPayload(mqttPayload);
         }
       };
-      mqtt.off('message', messageHandler);
+      mqtt.on('message', messageHandler);
+      return () => {
+        mqtt.off('message', messageHandler);
+      };
     }
   }, [mqtt, controllers, clusters]);
+  console.log('mqtt', payload);
+  
 
   const columns = useMemo<Columns[]>(() => {
     const tempColumns: Columns[] = [
@@ -396,7 +401,7 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
               loading={!payload}
               gray
               label='Water Flow'
-              value={payload?.waterflow}
+              value={payload?.water_flow}
             />
             <DetailItem
               loading={!payload}

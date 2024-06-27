@@ -114,7 +114,7 @@ export type UpdateConfigControllerMethods =
 
 export type MqttPayloadType = {
   action_type: string;
-  air_temperature: number;
+  temperature_air: number;
   controller_status: boolean;
   dap: number[];
   dap_date: string;
@@ -145,8 +145,8 @@ export type MqttPayloadType = {
   sf_config_ph_up: number;
   time_now: string;
   to: string;
-  water_temperature: number;
-  waterflow: number;
+  temperature_water: number;
+  water_flow: number;
 };
 
 export type SelectOptions = {

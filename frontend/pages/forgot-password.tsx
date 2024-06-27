@@ -18,7 +18,7 @@ const ForgotPassword: React.FC = () => {
       const response = await fetch(`http://localhost:4000/users?email=${email}`);
       if (response.ok) {
         const data = await response.json();
-        if (data.length > 0) {
+        if (data.data.length > 0) {
           setUserExists(true);
         } else {
           setError('Email not found');

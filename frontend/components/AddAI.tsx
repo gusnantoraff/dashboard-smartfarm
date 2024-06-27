@@ -48,6 +48,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
   const [plantName, setPlantName] = useState<string>('');
   const [typePlant, setTypePlant] = useState<string>('');
   const [dap, setDap] = useState<number>(10);
+  const [location, setLocation] = useState<string>('');
   const [recommendations, setRecommendations] = useState<any>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -96,6 +97,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
     const data = {
       name: plantName,
       dap_count: dap,
+      location: location,
       config_ec_dap: configEcDap,
       is_active: false,
       cluster_id: clusterId,
@@ -271,6 +273,16 @@ const AddAI: React.FC<AddAiProps> = (props) => {
             <option value="30">30 Days</option>
             <option value="35">35 Days</option>
           </Select>
+        </FormControl>
+        <FormControl mb="3">
+          <FormLabel fontSize="14px" fontWeight="bold">Location Coordinate</FormLabel>
+          <Input
+            placeholder="Location Coordinate"
+            _placeholder={{ color: 'gray.500' }}
+            size="sm"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+          />
         </FormControl>
         <Flex mb="3">
           <FormControl flex="1">

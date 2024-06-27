@@ -11,8 +11,32 @@ const SignUp: React.FC = () => {
   const router = useRouter();
   const [error, setError] = useState<string>('');
 
+  const checkUserExists = async (email: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`http://localhost:4000/users?email=${email}`);
+      if (response.ok) {
+        const data = await response.json();
+        return data.data.length > 0;
+      } else {
+        setError('Something went wrong');
+        return false;
+      }
+    } catch (error) {
+      console.error('An unexpected error occurred:', error);
+      setError('An unexpected error occurred');
+      return false;
+    }
+  };
+
   const handleSubmit = async ({ email, name, password, confirm_password, phone, role }: { email: string; name: string; password: string; confirm_password: string, phone: string, role: string }) => {
     setError('');
+
+    const userExists = await checkUserExists(email);
+
+    if (userExists) {
+      setError('Email is already registered');
+      return;
+    }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -34,7 +58,7 @@ const SignUp: React.FC = () => {
       const response = await fetch('http://localhost:4000/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, password, confirm_password, phone, role }),
+        body: JSON.stringify({ email, name, password, phone, role }),
       });
 
       if (response.ok) {
@@ -63,7 +87,7 @@ const SignUp: React.FC = () => {
         subtitle='Sign up to get started'
       >
         <Formik
-          initialValues={{ email: '', name: '', password: '', confirm_password: '', phone:'', role: '' }}
+          initialValues={{ email: '', name: '', password: '', confirm_password: '', phone: '', role: '' }}
           onSubmit={handleSubmit}
         >
           <Form>

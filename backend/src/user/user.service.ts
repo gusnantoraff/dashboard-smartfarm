@@ -31,12 +31,15 @@ export class UserService {
     return await this.userRepository.find();
   }
 
-  async getUsers(pageOptionsDto: PageOptionsDto, role?: Role): Promise<PageDto<User>> {
+  async getUsers(pageOptionsDto: PageOptionsDto, role?: Role, email?: string): Promise<PageDto<User>> {
     const { skip, take } = pageOptionsDto;
     const queryBuilder = this.userRepository.createQueryBuilder('user');
 
     if (role) {
       queryBuilder.where('user.role = :role', { role });
+    }
+    if (email) {
+      queryBuilder.where('user.email = :email', { email });
     }
 
     const [users, totalUsers] = await queryBuilder
@@ -78,7 +81,7 @@ export class UserService {
 
   // LOGIN
   async findByEmail(email: string): Promise<User | undefined> {
-    return await this.userRepository.findOne({ where: { email } });
+    return await this.userRepository.findOne({ where: { email: email } });
   }
 
   // token

@@ -30,9 +30,10 @@ export class UserController {
   @Get()
   async findAll(
     @Query('role') role: Role,
+    @Query('email') email: string,
     @Query() pageOptionsDto: PageOptionsDto,
   ): Promise<PageDto<User>> {
-    return this.userService.getUsers(pageOptionsDto, role);
+    return this.userService.getUsers(pageOptionsDto, role, email);
   }
 
   @Get(':id')

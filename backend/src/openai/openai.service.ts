@@ -17,7 +17,7 @@ export interface Recommendations {
 export class OpenAiService {
   private readonly apiKey = process.env.OPENAI_API_KEY;
 
-  async generateRecommendations(plantName: string, typePlant: string, dap: number): Promise<Recommendations> {
+  async generateRecommendations(plantName: string, typePlant: string, dap: number, location: number): Promise<Recommendations> {
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
@@ -29,7 +29,12 @@ export class OpenAiService {
           },
           {
             role: 'user',
-            content: `Generate precise (no range) recommendations EC per day (dS/m), pH, humidity, air temperature, water temperature, and waterflow (liter/m) for a plant with the following details:\n\nPlant Name: ${plantName}\nType of Plant: ${typePlant}\nDAP: ${dap}`,
+            content: `Please provide specific (no range) and unchanging data EC per day (dS/m), pH, humidity, air temperature, water temperature, and waterflow (liter/m) for a plant with the following details:
+                        \n\nPlant Name: ${plantName},
+                        \nType of Plant: ${typePlant},
+                        \nDAP (Days After Plant) : ${dap},
+                        \nbased on Location Coordinate: ${location} and today's weather from https://weather.com/weather/today/l/${location}?par=google,
+                        for IoT Hydroponics mqtt`
           },
         ],
       },
