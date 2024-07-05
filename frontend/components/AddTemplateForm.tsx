@@ -4,10 +4,10 @@ import {
   Button,
   Input,
   Select,
-  Slider,
-  SliderTrack,
-  SliderFilledTrack,
-  SliderThumb,
+  RangeSlider,
+  RangeSliderTrack,
+  RangeSliderFilledTrack,
+  RangeSliderThumb,
   Tab,
   TabList,
   TabPanel,
@@ -22,7 +22,11 @@ import {
   Box,
   Checkbox,
   FormControl,
-  FormLabel
+  FormLabel,
+  SliderTrack,
+  Slider,
+  SliderFilledTrack,
+  SliderThumb
 } from '@chakra-ui/react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -43,11 +47,11 @@ interface Cluster {
 const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
   const [templateName, setTemplateName] = useState<string>('');
   const [dap, setDap] = useState<number>(10);
-  const [ec, setEc] = useState<string>('');
-  const [ph, setPh] = useState<number>(4);
-  const [humidity, setHumidity] = useState<string>('');
-  const [airTemp, setAirTemp] = useState<string>('');
-  const [waterTemp, setWaterTemp] = useState<string>('');
+  const [ec, setEc] = useState<number>(1.5);
+  const [phRange, setPhRange] = useState<[number, number]>([0, 14]);
+  const [humidity, setHumidity] = useState<number>(60);
+  const [airTempRange, setAirTempRange] = useState<[number, number]>([0, 50]);
+  const [waterTemp, setWaterTemp] = useState<number>(20);
   const [waterflow, setWaterflow] = useState<string>('');
   const [showEc, setShowEc] = useState<boolean>(false);
   const [showPh, setShowPh] = useState<boolean>(false);
@@ -155,7 +159,9 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
       date_end: new Date(),
       dap_num: dap,
       config_ec_dap_id: uuidv4(),
-      log_controller_id: uuidv4(),
+      controller_session_id: uuidv4(),
+      config_sensor_id: uuidv4(),
+      log_controller_id: uuidv4()
     };
 
     const data = {
@@ -164,13 +170,20 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
       name: templateName,
       dap_count: dap,
       is_active: true,
+      ecData: Array.from({ length: dap }, (_, i) => ({ id: i + 1, value: 0, note: '' })),
       ec: ec,
-      ph: ph,
+      ph: phRange,
+      ph_up: phRange[0],
+      ph_down: phRange[1],
       humidity: humidity,
-      temperature_water: parseInt(waterTemp),
-      temperature_air: parseInt(airTemp),
-      water_flow: parseInt(waterflow) 
+      temperature_water: waterTemp,
+      temperature_air: airTempRange,
+      temperature_air_min: airTempRange[0],
+      temperature_air_max: airTempRange[1],
+      water_flow: waterflow
     };
+
+    console.log('Data to be sent:', JSON.stringify(data));
 
     try {
       const response = await fetch('http://localhost:4000/templates', {
@@ -180,6 +193,10 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
         },
         body: JSON.stringify(data)
       });
+  
+      const result = await response.json();
+      console.log('Response from backend:', result);
+  
       if (response.ok) {
         console.log('Template added successfully');
         await props.handleAddTemplateOrAI();
@@ -260,88 +277,108 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
           </Select>
         </FormControl>
         <FormControl mb="3">
-            <FormLabel fontSize="14px" fontWeight="bold">EC</FormLabel>
-            <Input
-              placeholder="EC Value"
-              _placeholder={{ color: 'gray.500' }}
-              size="sm"
-              value={ec}
-              onChange={(e) => setEc(e.target.value)}
-            />
-          </FormControl>
+          <FormLabel fontSize="14px" fontWeight="bold">EC</FormLabel>
+          <Input
+            type='number'
+            placeholder="EC"
+            _placeholder={{ color: 'gray.500' }}
+            size="sm"
+            value={ec}
+            onChange={(e) => setEc(parseFloat(e.target.value))}
+          />
+        </FormControl>
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">pH</FormLabel>
           <Flex alignItems="center">
-            <Slider
-              defaultValue={4}
+            <Box ml="2">{phRange[0]}</Box>
+            <Box ml="2" mr="2" flex="1"></Box>
+            <RangeSlider
               min={0}
-              max={10}
+              max={14}
               step={1}
-              value={ph}
-              onChange={(val) => setPh(val)}
+              value={phRange}
+              onChange={(val) => setPhRange([val[0], val[1]])}
+              size="sm"
             >
-              <SliderTrack>
-                <SliderFilledTrack />
-              </SliderTrack>
-              <SliderThumb boxSize={4}>
-                <Box color="tomato" />
-              </SliderThumb>
-            </Slider>
-            <Box ml="2">{ph}</Box>
+              <RangeSliderTrack>
+                <RangeSliderFilledTrack />
+              </RangeSliderTrack>
+              <RangeSliderThumb boxSize={3} index={0} bg="blue.500" />
+              <RangeSliderThumb boxSize={3} index={1} bg="blue.500" />
+            </RangeSlider>
+            <Box ml="2">{phRange[1]}</Box>
           </Flex>
         </FormControl>
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">Humidity</FormLabel>
-          <Select
-            placeholder="Humidity"
-            _placeholder={{ color: 'gray.500' }}
-            size="sm"
-            value={humidity}
-            onChange={(e) => setHumidity(e.target.value)}
-          >
-            <option value="40">40°C</option>
-            <option value="50">50°C</option>
-            <option value="55">55°C</option>
-            <option value="60">60°C</option>
-            <option value="65">65°C</option>
-            <option value="70">70°C</option>
-            <option value="75">75°C</option>
-          </Select>
+          <Flex alignItems="center">
+          <Slider
+              defaultValue={60}
+              min={0}
+              max={100}
+              step={1}
+              value={humidity}
+              onChange={(val) => setHumidity(val)}
+              size="sm"
+            >
+              <SliderTrack>
+                <SliderFilledTrack />
+              </SliderTrack>
+              <SliderThumb boxSize={3} bg="blue.500">
+                <Box color="tomato" />
+              </SliderThumb>
+            </Slider>
+            <Box ml="2">{humidity}%</Box>
+          </Flex>
         </FormControl>
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">Air Temperature</FormLabel>
-          <Select
-            placeholder="Select Air Temperature"
-            _placeholder={{ color: 'gray.500' }}
-            size="sm"
-            value={airTemp}
-            onChange={(e) => setAirTemp(e.target.value)}
-          >
-            <option value="20">20°C</option>
-            <option value="25">25°C</option>
-            <option value="30">30°C</option>
-            <option value="35">35°C</option>
-          </Select>
+          <Flex alignItems="center">
+            <Box ml="2">{airTempRange[0]}°C</Box>
+            <Box ml="2" mr="2" flex="1"></Box>
+            <RangeSlider
+              min={0}
+              max={50}
+              step={1}
+              value={airTempRange}
+              onChange={(val) => setAirTempRange([val[0], val[1]])}
+              size="sm"
+            >
+              <RangeSliderTrack>
+                <RangeSliderFilledTrack />
+              </RangeSliderTrack>
+              <RangeSliderThumb boxSize={3} index={0} bg="blue.500" />
+              <RangeSliderThumb boxSize={3} index={1} bg="blue.500" />
+            </RangeSlider>
+            <Box ml="2">{airTempRange[1]}°C</Box>
+          </Flex>
         </FormControl>
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">Water Temperature</FormLabel>
-          <Select
-            placeholder="Select Water Temperature"
-            _placeholder={{ color: 'gray.500' }}
-            size="sm"
-            value={waterTemp}
-            onChange={(e) => setWaterTemp(e.target.value)}
-          >
-            <option value="20">20°C</option>
-            <option value="25">25°C</option>
-            <option value="30">30°C</option>
-            <option value="35">35°C</option>
-          </Select>
+          <Flex alignItems="center">
+          <Slider
+              defaultValue={20}
+              min={0}
+              max={50}
+              step={1}
+              value={waterTemp}
+              onChange={(val) => setWaterTemp(val)}
+              size="sm"
+            >
+              <SliderTrack>
+                <SliderFilledTrack />
+              </SliderTrack>
+              <SliderThumb boxSize={3} bg="blue.500">
+                <Box color="tomato" />
+              </SliderThumb>
+            </Slider>
+            <Box ml="2">{waterTemp}°C</Box>
+          </Flex>
         </FormControl>
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">Waterflow</FormLabel>
           <Input
-            placeholder="Waterflow"
+            placeholder="Waterflow (L/m)"
             _placeholder={{ color: 'gray.500' }}
             size="sm"
             value={waterflow}
@@ -349,6 +386,7 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
           />
         </FormControl>
       </Flex>
+
       <Tabs isLazy>
         <TabList>
           {showEc && (
@@ -370,6 +408,7 @@ const AddTemplateForm: React.FC<AddTemplateFormProps> = (props) => {
             <Tab fontSize="14px">Waterflow</Tab>
           )}
         </TabList>
+
         <TabPanels>
           {showEc && (
             <TabPanel>

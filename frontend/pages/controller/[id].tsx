@@ -13,6 +13,7 @@ import SkeletonComponent from '@/components/Skeleton';
 import Status from '@/components/Status';
 import EcConfigModal from '@/components/EcConfigModal';
 import { DetailController, MqttPayloadType } from '@/types';
+import Cookies from 'js-cookie';
 
 export async function getServerSideProps(context: any) {
   const { id } = context.query;
@@ -41,21 +42,37 @@ export default function Detail({ data }: Props) {
     if (mqtt && data) {
       mqtt.on('message', (_, message) => {
         const mqttPayload: MqttPayloadType = JSON.parse(message.toString());
-        const isControllerNameAlreadySetup = data.name.split('/').length > 1;
-        let controllerId = data.name;
+        const isControllerNameAlreadySetup =
+          controller.name.split('/').length > 1;
+
+        let controllerId = controller.name;
 
         if (!isControllerNameAlreadySetup) {
-          controllerId = `${data.cluster.id}/${data.name}`;
+          controllerId = `${controller.cluster.cluster_id}/${controller.name}`;
         }
 
-        if (mqttPayload.from === controllerId && mqttPayload.action_type === 'log_controller') {
+        if (
+          mqttPayload.from === controllerId &&
+          mqttPayload.action_type === 'log_controller'
+        ) {
+          const expirationTime = new Date(new Date().getTime() + 30 * 60 * 1000);
+          Cookies.set(`mqttPayload_${controller.name}`, JSON.stringify(mqttPayload), { expires: expirationTime, path: '/' });
           setPayload(mqttPayload);
         }
       });
     }
   }, [mqtt, data]);
 
-  console.log('data',data);
+  useEffect(() => {
+    const cookiePayload = Cookies.get(`mqttPayload_${controller.name}`);
+    if (cookiePayload) {
+      setPayload(JSON.parse(cookiePayload));
+    }
+  }, []);
+
+
+  console.log('data', data);
+  console.log('payload', payload);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -147,7 +164,7 @@ export default function Detail({ data }: Props) {
                 label={`Air (${payload?.sf_config_fan_air_temp_min ?? 0} - ${payload?.sf_config_fan_air_temp_max ?? 0})`}
                 value={
                   <span>
-                    {payload?.air_temperature ?? 0} <sup>o</sup>C
+                    {payload?.temperature_air ?? 0} <sup>o</sup>C
                   </span>
                 }
               />
@@ -155,7 +172,7 @@ export default function Detail({ data }: Props) {
                 label={`Water`}
                 value={
                   <span>
-                    {payload?.water_temperature ?? 0} <sup>o</sup>C
+                    {payload?.temperature_water ?? 0} <sup>o</sup>C
                   </span>
                 }
               />
@@ -279,7 +296,7 @@ export default function Detail({ data }: Props) {
                 doseTime: payload?.peristaltic_pump_duration ?? 0,
               }}
               label={`Waterflow`}
-              value={`${payload?.waterflow ?? 0}`}
+              value={`${payload?.water_flow ?? 0}`}
               helperText={'Setting Waterflow'}
             >
               <div className='flex flex-col gap-5'>

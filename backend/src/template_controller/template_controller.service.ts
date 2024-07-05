@@ -14,6 +14,7 @@ import { ConfigEcDap } from 'src/config-ec-dap/entities/config-ec-dap.entity';
 import axios from 'axios';
 import { ControllerSession } from 'src/controller-session/entities/controller-session.entity';
 import { Controller } from 'src/controller/entities/controller.entity';
+import { ConfigSensor } from 'src/config-sensor/entities/config-sensor.entity';
 
 @Injectable()
 export class TemplateService {
@@ -26,7 +27,7 @@ export class TemplateService {
   ) {}
 
   async create(createTemplateDto: CreateTemplateDto): Promise<Template> {
-    const { cluster_id, dap_num, ec, ph, humidity, temperature_water, temperature_air, water_flow, ...rest } = createTemplateDto;
+    const { cluster_id, dap_num, ec,ph, ph_up, ph_down, humidity, temperature_water,temperature_air, temperature_air_max, temperature_air_min, water_flow, ...rest } = createTemplateDto;
 
     const cluster = await this.clusterRepository.findOneOrFail({ where: { cluster_id } });
 
@@ -38,6 +39,23 @@ export class TemplateService {
     configEcDaps.date_start= new Date;
     configEcDaps.date_end= new Date;
     configEcDaps.dap_num= rest.config_ec_dap.dap_num;
+
+    const configSensor = new ConfigSensor();
+    configSensor.config_sensor_id= rest.config_ec_dap.config_sensor_id;
+    configSensor.ph_up= ph_up;
+    configSensor.humidity= humidity;
+    configSensor.ec= ec;
+    configSensor.ph_down= ph_down;
+    configSensor.water_flow= water_flow;
+    configSensor.temperature_air_min= temperature_air_min;
+    configSensor.temperature_air_max= temperature_air_max;
+
+    const controllerSession = new ControllerSession();
+    controllerSession.controller_session_id= rest.config_ec_dap.controller_session_id;
+    controllerSession.dap_first_date_time= configEcDaps.date_start;
+    controllerSession.dap_first_end_time= configEcDaps.date_end;
+    controllerSession.template= template_id;
+    controllerSession.config_sensor= [configSensor];
 
     const logController = new LogController();
     logController.log_controller_id= rest.config_ec_dap.log_controller_id;
@@ -55,8 +73,10 @@ export class TemplateService {
     template.cluster = cluster;
     template.name = rest.name;
     template.dap_count = rest.dap_count;
+    template.ecData= rest.ecData;
     template.is_active= rest.is_active;
     template.config_ec_dap = rest.config_ec_dap;
+    template.config_ec_dap.controllerSessions = [controllerSession];
     template.config_ec_dap.logControllers = [logController];
 
     const queryRunner = this.connection.createQueryRunner();
@@ -66,6 +86,8 @@ export class TemplateService {
 
     try {
       await queryRunner.manager.save(template);
+      await queryRunner.manager.save(controllerSession);
+      await queryRunner.manager.save(configSensor);
       await queryRunner.manager.save(logController);
       await queryRunner.manager.save(configEcDaps);
 
@@ -139,8 +161,9 @@ export class TemplateService {
     }
 
     const config_ec_dap_id = template.config_ec_dap.config_ec_dap_id;
-    const configEcDapApiResponse = await axios.get(`http://localhost:4000/config-ec-dap/${config_ec_dap_id}`);
-    const configEcDapData = configEcDapApiResponse.data;
+    const configEcDapApiResponse = await fetch(`http://localhost:4000/config-ec-dap/${config_ec_dap_id}`);
+    const configEcDapData = await configEcDapApiResponse.json();
+
 
     const configEcDap: ConfigEcDap = {
       config_ec_dap_id: configEcDapData.config_ec_dap_id,
@@ -155,6 +178,47 @@ export class TemplateService {
       controllerSessions: new ControllerSession,
       logControllers: []
     };
+
+    const controller_session_id = template.config_ec_dap.controller_session_id;
+    const controllerSessionApiResponse = await fetch(`http://localhost:4000/controller-session/${controller_session_id}`);
+    const controllerSessionData = await controllerSessionApiResponse.json();
+
+    const controllerSession: ControllerSession = {
+      controller_session_id: controllerSessionData.controller_session_id,
+      dap_first_date_time: controllerSessionData.dap_first_date_time,
+      dap_first_end_time: controllerSessionData.dap_first_end_time,
+      template: controllerSessionData.template_id,
+      config_sensor: controllerSessionData.config_sensor,
+      created_at: controllerSessionData.created_at,
+      updated_at: controllerSessionData.updated_at,
+      deleted_at: controllerSessionData.deleted_at,
+      controllers: new Controller,
+      configEcDaps: [],
+      logControllers: []
+    };
+
+    const config_sensor_id = template.config_ec_dap.config_sensor_id;
+    const configSensorApiResponse = await fetch(`http://localhost:4000/config-sensor/${config_sensor_id}`);
+    const configSensorData = await configSensorApiResponse.json();
+
+    const configSensor: ConfigSensor = {
+      config_sensor_id: configSensorData.config_sensor_id,
+      controllers: new Controller,
+      ph_up: configSensorData.ph_up,
+      humidity: configSensorData.humidity,
+      ec: configSensorData.ec,
+      ph_down: configSensorData.ph_down,
+      water_flow: configSensorData.water_flow,
+      temperature_air_min: configSensorData.temperature_air_min,
+      temperature_air_max: configSensorData.temperature_air_max,
+      peristaltic_pump_duration: configSensorData.peristaltic_pump_duration,
+      peristaltic_pump_period: configSensorData.peristaltic_pump_period,
+      ec_mode: configSensorData.ec_mode,
+      created_at: configSensorData.created_at,
+      updated_at: configSensorData.updated_at,
+      deleted_at: configSensorData.deleted_at
+    };
+
 
     const log_controller_id = template.config_ec_dap.log_controller_id;
     const logControllerApiResponse = await axios.get(`http://localhost:4000/log-controllers/${log_controller_id}`);
@@ -212,34 +276,8 @@ export class TemplateService {
         },
         configEcDaps: [configEcDap],
         logControllers: [logController],
-        controllerSessions: controller.controllerSessions.map(controllerSession => ({
-          controller_session_id: controllerSession.controller_session_id,
-          controller_id: controllerSession.controllers,
-          template_id: controllerSession.template,
-          config_sensor: controllerSession.config_sensor,
-          dap_first_date_time: controllerSession.dap_first_date_time,
-          dap_first_end_time: controllerSession.dap_first_end_time,
-          created_at: controllerSession.created_at,
-          updated_at: controllerSession.updated_at,
-          deleted_at: controllerSession.deleted_at,
-        })),
-        configSensors: controller.configSensors.map(configSensor => ({
-          config_sensor_id: configSensor.config_sensor_id,
-          controller_id: configSensor.controllers,
-          ph_up: configSensor.ph_up,
-          humidity: configSensor.humidity,
-          ec: configSensor.ec,
-          ph_down: configSensor.ph_down,
-          water_flow: configSensor.water_flow,
-          temperature_air_min: configSensor.temperature_air_min,
-          temperature_air_max: configSensor.temperature_air_max,
-          peristaltic_pump_duration: configSensor.peristaltic_pump_duration,
-          peristaltic_pump_period: configSensor.peristaltic_pump_period,
-          ec_mode: configSensor.ec_mode,
-          created_at: configSensor.created_at,
-          updated_at: configSensor.updated_at,
-          deleted_at: configSensor.deleted_at,
-        })),
+        controllerSessions: [controllerSession],
+        configSensors: [configSensor]
       })),
     };
 

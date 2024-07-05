@@ -45,5 +45,11 @@ export class Template {
     this.created_at = new Date(moment().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'));
     this.updated_at = new Date(moment().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss'));
   }
+
+  @Column({ type: 'jsonb', nullable: true })
+  ecData: any;
+
+  @Column({nullable: true})
+  controllerCount: number;
   
 }

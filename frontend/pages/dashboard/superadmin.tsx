@@ -7,6 +7,8 @@ import DeleteButton from '@/components/DeleteButton';
 import Table from '@/components/Table';
 import { ClusterDetail } from '@/components/ClusterDetail';
 import Link from '@/components/Link';
+import { Template } from '@/hooks/useTemplate';
+import TemplateDetail from '@/components/TemplateDetail';
 
 interface Cluster {
   cluster_id: string;
@@ -21,6 +23,8 @@ interface Cluster {
 const SuperadminDashboard = () => {
   const [totalDevices, setTotalDevices] = useState<number>(0);
   const [totalClusters, setTotalClusters] = useState<number>(0);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   const fetchTotalClusters = async () => {
     try {
@@ -39,6 +43,20 @@ const SuperadminDashboard = () => {
       setTotalDevices(controllersData.length);
     } catch (error) {
       console.error('Error fetching controllers data:', error);
+    }
+  };
+
+  const fetchTemplates = async () => {
+    try {
+      const templatesResponse = await axios.get('http://localhost:4000/templates/all');
+      const templatesData = templatesResponse.data;
+    const templatesWithCount = templatesData.map((template: Template) => ({
+      ...template,
+      controllerCount: template.controllers.length,
+    }));
+    setTemplates(templatesWithCount);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
     }
   };
 
@@ -81,6 +99,7 @@ const SuperadminDashboard = () => {
     fetchTotalDevices();
     fetchClusters();
     fetchControllers();
+    fetchTemplates();
   }, [pagination.page]);
 
   const toggleClusterTable = () => {
@@ -89,6 +108,10 @@ const SuperadminDashboard = () => {
 
   const toggleControllerTable = () => {
     setIsControllerTableVisible(!isControllerTableVisible);
+  };
+
+  const toggleProduct = (templateId: string) => {
+    setSelectedTemplateId(templateId);
   };
 
   const fetchClusters = async () => {
@@ -274,34 +297,27 @@ const SuperadminDashboard = () => {
           </div>
           <Text fontSize='2xl' fontWeight='bold' color='blue.500'>{totalClusters}</Text>
         </Box>
-        <Box
-          p={5}
-          shadow='md'
-          borderWidth='1px'
-          borderRadius='md'
-          textAlign='center'
-        >
-          <div className='w-full flex justify-between items-center'>
-            <Icon as={FiCpu} boxSize={4} color='gray' />
-            <Text fontSize='l' fontWeight='bold' color='black'>Product 01</Text>
-            <Icon as={FiInfo} boxSize={4} color='black' />
-          </div>
-          <Text fontSize='2xl' fontWeight='bold' color='blue.500'>0</Text>
-        </Box>
-        <Box
-          p={5}
-          shadow='md'
-          borderWidth='1px'
-          borderRadius='md'
-          textAlign='center'
-        >
-          <div className='w-full flex justify-between items-center'>
-            <Icon as={FiCpu} boxSize={4} color='gray' />
-            <Text fontSize='l' fontWeight='bold' color='black'>Product 02</Text>
-            <Icon as={FiInfo} boxSize={4} color='black' />
-          </div>
-          <Text fontSize='2xl' fontWeight='bold' color='blue.500'>0</Text>
-        </Box>
+        {templates.map((template, index) => (
+          <Box
+            key={template.template_id}
+            p={5}
+            shadow='md'
+            borderWidth='1px'
+            borderRadius='md'
+            textAlign='center'
+          >
+            <div className='w-full flex justify-between items-center'>
+              <Icon as={FiCpu} boxSize={4} color='gray' />
+              <Text fontSize='l' fontWeight='bold' color='black'>{template.name}</Text>
+              <Icon as={FiInfo} boxSize={4} color='black' cursor='pointer'  onClick={() => toggleProduct(template.template_id)} />
+            </div>
+            <Text fontSize='2xl' fontWeight='bold' color='blue.500'>{template.controllerCount}</Text>
+          </Box>
+        ))}
+        {selectedTemplateId && (
+        <TemplateDetail id={selectedTemplateId} />
+      )}
+
       </SimpleGrid>
       {isClusterTableVisible && (
         <Table

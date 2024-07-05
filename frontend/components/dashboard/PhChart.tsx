@@ -74,7 +74,7 @@ export default function PhChart({ controllerData, payload }: Props) {
             <div style='padding: 8px 12px; background-color: #014493; display: flex; justify-content: space-between; align-items: center;'>
               <p style='color: #FFF; font-weight: 600; font-size: 12px'>${controllerName}</p>
               <div style='width: 8px; height: 8px; border-radius: 100%; background-color: ${
-              controllerData?.isActive ? '#16DA41' : '#E5363D'
+              controllerData?.is_active ? '#16DA41' : '#E5363D'
               }'></div>
             </div>
 

@@ -185,9 +185,9 @@ const ControllerPage: React.FC = () => {
         {logControllers.map((logController: any, index: number) => (
           <div key={index}>
             <div>EC: {logController.ec !== undefined ? logController.ec : 'N/A'}</div>
-            <div>pH: {logController.ph !== undefined ? logController.ph : 'N/A'}</div>
+            <div>pH: {logController.ph !== undefined ? `${logController.ph[0]}-${logController.ph[1]}` : 'N/A'}</div>
             <div>Humidity: {logController.humidity !== undefined ? `${logController.humidity}%` : 'N/A'}</div>
-            <div>Air Temp: {logController.temperature_air !== undefined ? `${logController.temperature_air}°C` : 'N/A'}</div>
+            <div>Air Temp: {logController.temperature_air !== undefined ? `${logController.temperature_air[0]}-${logController.temperature_air[1]}°C` : 'N/A'}</div>
             <div>Water Temp: {logController.temperature_water !== undefined ? `${logController.temperature_water}°C` : 'N/A'}</div>
             <div>Waterflow: {logController.water_flow !== undefined ? `${logController.water_flow} L/m` : 'N/A'}</div>
           </div>
@@ -204,9 +204,9 @@ const ControllerPage: React.FC = () => {
         {logControllers.map((logController: any, index: number) => (
           <div key={index}>
             <div>EC: {logController.ec !== undefined ? logController.ec : 'N/A'}</div>
-            <div>pH: {logController.ph !== undefined ? logController.ph : 'N/A'}</div>
+            <div>pH: {logController.ph !== undefined ? `${logController.ph.max}-${logController.ph.min}` : 'N/A'}</div>
             <div>Humidity: {logController.humidity !== undefined ? `${logController.humidity}%` : 'N/A'}</div>
-            <div>Air Temp: {logController.temperature_air !== undefined ? `${logController.temperature_air}°C` : 'N/A'}</div>
+            <div>Air Temp: {logController.temperature_air !== undefined ? `${logController.temperature_air.max}-${logController.temperature_air.min}°C` : 'N/A'}</div>
             <div>Water Temp: {logController.temperature_water !== undefined ? `${logController.temperature_water}°C` : 'N/A'}</div>
             <div>Waterflow: {logController.water_flow !== undefined ? `${logController.water_flow} L/m` : 'N/A'}</div>
           </div>

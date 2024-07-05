@@ -10,16 +10,12 @@ import {
   ModalFooter,
   ModalBody,
   ModalCloseButton,
-  FormControl,
-  FormLabel,
-  Input,
   HStack,
   Tabs,
   TabList,
   Tab,
   TabPanels,
   TabPanel,
-  Select,
 } from '@chakra-ui/react';
 import SearchInput from '@/components/SearchInput';
 import axios from 'axios';
@@ -28,6 +24,10 @@ import Table from '@/components/Table';
 import DetailModal from '@/components/DetailModal';
 import { useRouter } from 'next/router';
 import Cookies from 'js-cookie';
+import AddModal from '@/components/AddModal';
+import FormItem from '@/components/FormItem';
+import moment from 'moment-timezone';
+import UserDetail from '@/components/UserDetail';
 
 interface User {
   user_id: string;
@@ -36,9 +36,14 @@ interface User {
   role: string;
 }
 
+type AddMemberValues = {
+  cluster_id: string;
+  user_id: string;
+};
+
 const UserManagementPage = () => {
   const router = useRouter();
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { id } = router.query;
   const [users, setUsers] = useState<User[]>([]);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -48,24 +53,37 @@ const UserManagementPage = () => {
     hasPreviousPage: false,
     hasNextPage: false,
   });
-  const [formData, setFormData] = useState<User>({
-    user_id: '',
-    name: '',
-    email: '',
-    role: '',
-  });
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedUserDetail, setSelectedUserDetail] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<string>('Superadmin');
   const [errorPopup, setErrorPopup] = useState(false);
   const token = Cookies.get('token');
+  const [isOpen, setIsOpen] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User>();
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+
 
   useEffect(() => {
     fetchUsers();
-  }, [activeTab, pagination.page]);
+    fetchCurrentUser();
+    if (id) {
+      setSelectedUserId(id as string);
+  }
+  }, [id, activeTab, pagination.page]);
 
-  const toggleModal = () => {
-    setIsModalOpen(!isModalOpen);
+  const fetchCurrentUser = async () => {
+    try {
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      const response = await axios.get('http://localhost:4000/users/me', config);
+      setCurrentUser(response.data);
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
   };
 
   const fetchUsers = async () => {
@@ -121,15 +139,29 @@ const UserManagementPage = () => {
     }));
   };
 
-  const handleAddUser = async (formData: User) => {
+  const handleAddMember = async (values: AddMemberValues) => {
+    setSubmitLoading(true);
     try {
-      const response = await axios.post('http://localhost:4000/users/', formData);
-      setUsers([...users, response.data]);
-      toggleModal();
+      const response = await fetch('http://localhost:4000/memberships/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+      setSubmitLoading(false);
+
+      if (!response.ok) {
+        throw new Error('Failed to add member');
+      }
+      console.log('Member added successfully');
+
+      setIsOpen(false);
     } catch (error) {
-      console.error('Error adding user:', error);
+      console.error('Error adding member');
     }
   };
+
 
   const handleDeleteUser = async (selectedUserId: string) => {
     if (selectedUserId) {
@@ -154,20 +186,6 @@ const UserManagementPage = () => {
         console.error('Error deleting user:', error);
       }
     }
-  };
-
-
-  const handleChange = (e: React.ChangeEvent<HTMLSelectElement> | React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prevData => ({
-      ...prevData,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = () => {
-    handleAddUser(formData);
-    setFormData({ user_id: '', name: '', email: '', role: '' });
   };
 
   const handleSearch = (keyword: string) => {
@@ -220,6 +238,11 @@ const UserManagementPage = () => {
     },
   ];
 
+
+  const handleUserDetailClose = () => {
+    setSelectedUserId(null);
+  };
+
   const onClose = () => {
     router.reload();
   };
@@ -234,7 +257,7 @@ const UserManagementPage = () => {
             <SearchInput placeholder="Search User" onSearch={handleSearch} />
           </HStack>
           <Button
-            onClick={toggleModal}
+            onClick={() => setIsOpen(true)}
             variant='solid'
             bg='primary'
             color='white'
@@ -264,37 +287,26 @@ const UserManagementPage = () => {
         </TabPanels>
       </Tabs>
 
-      <Modal isOpen={isModalOpen} onClose={toggleModal}>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Add New Member</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <FormControl mt="4">
-              <FormLabel>Name</FormLabel>
-              <Input type="text" name="name" value={formData.name} onChange={handleChange} />
-            </FormControl>
-            <FormControl mt="4">
-              <FormLabel>Email</FormLabel>
-              <Input type="email" name="email" value={formData.email} onChange={handleChange} />
-            </FormControl>
-            <FormControl mt="4">
-              <FormLabel>Role</FormLabel>
-              <Select name="role" value={formData.role} onChange={handleChange}>
-                <option value="SUPER_ADMIN">Superadmin</option>
-                <option value="ADMIN">Admin</option>
-                <option value="USER">User</option>
-              </Select>
-            </FormControl>
-          </ModalBody>
-          <ModalFooter>
-            <Button colorScheme="blue" mr={3} onClick={handleSubmit}>
-              Save
-            </Button>
-            <Button onClick={toggleModal}>Close</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      <AddModal
+        loading={submitLoading}
+        onSubmit={handleAddMember}
+        schema={{
+          cluster_id: '',
+          user_id: '',
+          is_owner: false,
+          is_first_owner: false,
+          is_active: true,
+          invited_by: currentUser?.name,
+          invited_at: new Date(moment().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')),
+          status: "active"
+        }}
+        open={isOpen}
+        onClose={() => setIsOpen(false)}
+        title='Add New Member'
+      >
+        <FormItem.ClusterDropdown name="cluster_id" placeholder="Cluster" />
+        <FormItem.UserDropdown name="user_id" placeholder="User" />
+      </AddModal>
 
       <DetailModal
         close={onClose}
@@ -344,6 +356,8 @@ const UserManagementPage = () => {
           </ModalFooter>
         </ModalContent>
       </Modal>
+      
+      {selectedUserId && <UserDetail userId={selectedUserId} onClose={handleUserDetailClose}/>}
 
     </DashboardLayout>
   );

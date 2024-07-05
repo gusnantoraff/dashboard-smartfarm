@@ -4,11 +4,11 @@ import { useToast } from '@chakra-ui/react';
 import Cookies from 'js-cookie';
 
 export interface User {
-  id: string;
+  user_id: string;
   name: string;
   role: string;
   email: string;
-  memberships?: Membership[];
+  memberships: Membership[];
 }
 
 export interface Membership {
@@ -42,14 +42,11 @@ export interface ListUserInput {
 
 export interface UserResponse {
   ListUsers: {
-    listUser: {
-      page: number;
-      take: number;
-      itemCount: number;
-      pageCount: number;
-      users: User[];
-    };
-    count: RoleCount[];
+    user_id: string;
+    name: string;
+    role: string;
+    email: string;
+    memberships?: Membership[];
   };
 }
 

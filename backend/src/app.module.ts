@@ -15,6 +15,8 @@ import { LogControllerModule } from './log-controller/log-controller.module';
 import { ManagementControllerModule } from './management-controller/management-controller.module';
 import { MembershipModule } from './membership/membership.module';
 import { VoidPermissionModule } from './void-permission/void-permission.module';
+import { ConfigSensorModule } from './config-sensor/config-sensor.module';
+import { ControllerSessionModule } from './controller-session/controller-session.module';
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { VoidPermissionModule } from './void-permission/void-permission.module';
     ManagementControllerModule,
     MembershipModule,
     VoidPermissionModule,
+    ConfigSensorModule,
+    ControllerSessionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

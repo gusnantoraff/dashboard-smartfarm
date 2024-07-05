@@ -101,12 +101,12 @@ const membershipColumns = [
   },
   {
     name: 'Member Name',
-    selector: (row: Memberships) => row.userId,
+    selector: (row: Memberships) => row.users.name,
   },
   {
     name: 'Role Member',
     selector: (row: Memberships) => {
-      if (row.isOwner || row.isFirstOwner) {
+      if (row.is_owner || row.is_first_owner) {
         return 'Cluster Owner';
       }
       return 'Common Member';
@@ -114,12 +114,12 @@ const membershipColumns = [
   },
   {
     name: 'Invite By',
-    selector: (row: Memberships) => row.invitedBy,
+    selector: (row: Memberships) => row.invited_by,
   },
   {
     name: 'Status',
     selector: (row: Memberships) => {
-      return row.isActive ? (
+      return row.is_active ? (
         <Badge className='w-full text-center' variant={'active'}>
           Active
         </Badge>
@@ -134,7 +134,7 @@ const membershipColumns = [
     name: 'Action',
     selector: (row: Memberships) => {
       return (
-        <Link target='_blank' href={`/user-management?id=${row.userId}`}>
+        <Link target='_blank' href={`/user-management?id=${row.users.user_id}`}>
           <Button
             variant='solid'
             bg={'secondary'}

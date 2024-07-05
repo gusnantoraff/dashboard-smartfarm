@@ -1,5 +1,6 @@
-import mqtt, { MqttClient } from 'mqtt';
+import { MqttClient } from 'mqtt';
 import { useState, useEffect } from 'react';
+import mqtt from 'mqtt';
 
 require('dotenv').config();
 
@@ -31,8 +32,15 @@ function useMqtt() {
   useEffect(() => {
     if (client && firstConnect) {
       client.on('connect', () => {
+        console.log('Connected to broker');
         setStatus('connected');
-        client.subscribe(topic);
+        client.subscribe(topic, (err) => {
+          if (err) {
+            console.error('Subscription error:', err);
+          } else {
+            console.log('Subscribed to topic:', topic);
+          }
+        });
         setLoading(false);
       });
 
@@ -46,6 +54,13 @@ function useMqtt() {
 
       setFirstConnect(false);
     }
+
+    // Cleanup on unmount
+    return () => {
+      if (client) {
+        client.end();
+      }
+    };
   }, [client]);
 
   return { mqtt: client, status, loading, setStatus };

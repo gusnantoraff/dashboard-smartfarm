@@ -19,30 +19,28 @@ export class ControllerService {
     private readonly clusterRepository: Repository<Cluster>,
     @InjectRepository(Template)
     private readonly templateRepository: Repository<Template>,
-  ) {}
+  ) { }
 
-  async create(createControllerDto: CreateControllerDto): Promise<Controller> {
+  async create(createControllerDto: CreateControllerDto): Promise<Controller>{
     const { cluster_id, template_id, ...rest } = createControllerDto;
 
     const cluster = await this.clusterRepository.findOneOrFail({ where: { cluster_id } });
     const template = await this.templateRepository.findOneOrFail({ where: { template_id } });
+
     const controller_id = uuidv4();
 
     const controller = new Controller();
-    controller.controller_id= controller_id;
-    controller.cluster= cluster;
+    controller.controller_id = controller_id;
+    controller.cluster = cluster;
     controller.template = template;
-    if (template.config_ec_dap && Array.isArray(template.config_ec_dap)) {
-      controller.logControllers = template.config_ec_dap.map(configEcDap => configEcDap.log_controller_id);
-      controller.configEcDaps = template.config_ec_dap.map(configEcDap => configEcDap.config_ec_dap_id);
-    } else {
-      console.error('');
-    }
-    controller.logControllers =  template.config_ec_dap.logControllersConfig;
+    controller.controllerSessions = template.config_ec_dap.controllerSessions;
+    controller.logControllers = template.config_ec_dap.logControllers;
+
     Object.assign(controller, rest);
 
     return await this.controllerRepository.save(controller);
   }
+
 
   async findAll(): Promise<Controller[]> {
     return this.controllerRepository.find();
@@ -89,7 +87,7 @@ export class ControllerService {
     const controller = await this.controllerRepository.findOne({
       where: { controller_id: id },
       relations: [
-        'template', 
+        'template',
         'cluster',
         'configSensors',
         'controllerSessions',
@@ -104,12 +102,12 @@ export class ControllerService {
       template_id: controller.template.template_id,
       template: controller.template,
       cluster: controller.cluster,
-      configs: controller.configSensors,
+      configs: controller.controllerSessions.map(config => config.config_sensor),
       controllerSessions: controller.controllerSessions,
       logControllers: controller.logControllers
     };
-    
+
     return controllerDetails;
   }
-  
+
 }

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Field } from 'formik';
-import { Cluster } from '../../backend/src/cluster/entities/cluster.entity';
 import {
   FormControl,
   FormErrorMessage,
@@ -187,6 +186,62 @@ const TemplateDropdown = ({ name, placeholder }: { name: string; placeholder: st
   );
 };
 
+const UserDropdown = ({ name, placeholder }: { name: string; placeholder: string }) => {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get('http://localhost:4000/users/all');
+        if (Array.isArray(response.data)) {
+          setData(response.data);
+        } else {
+          setError('Invalid data format');
+        }
+        setLoading(false);
+      } catch (error) {
+        setError('Failed to fetch templates');
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  return (
+    <Field name={name}>
+      {({ field, form }: any) => (
+        <FormControl isInvalid={form.errors[name] && form.touched[name]}>
+          <FormLabel fontSize={'14px'}>
+            {placeholder ? placeholder : capitalize(name)}
+          </FormLabel>
+          <Select
+            fontSize={'14px'}
+            {...field}
+            placeholder={placeholder ? placeholder : capitalize(name)}
+          >
+            {loading ? (
+              <Spinner />
+            ) : error ? (
+              <option>
+                <Text color='red.500'>{error}</Text>
+              </option>
+            ) : (
+              data.map((item: any) => (
+                <option key={item.user_id} value={item.user_id}>
+                  {item.name}
+                </option>
+              ))
+            )}
+          </Select>
+          <FormErrorMessage>{form.errors[name]}</FormErrorMessage>
+        </FormControl>
+      )}
+    </Field>
+  );
+};
+
 // Input type components
 const SelectDefault = ({ name, placeholder, options = [] }: PropsSelect) => (
   <Field name={name}>
@@ -349,7 +404,8 @@ const PasswordItem = ({ name, placeholder }: PasswordProps) => {
 
 FormItem.Input = InputItem;
 FormItem.Password = PasswordItem;
-FormItem.ClusterDropdown = ClusterDropdown
+FormItem.ClusterDropdown = ClusterDropdown;
+FormItem.UserDropdown = UserDropdown;
 FormItem.TemplateDropdown = TemplateDropdown;
 FormItem.InputInline = InputItemInline;
 FormItem.Select = SelectItem;

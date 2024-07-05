@@ -28,6 +28,12 @@ interface DataItem {
   value: number;
 }
 
+interface RangeDataItem {
+  id: number;
+  min: number;
+  max: number;
+}
+
 interface AddAiProps {
   handleAddTemplateOrAI: () => Promise<void>;
 }
@@ -40,10 +46,10 @@ const AddAI: React.FC<AddAiProps> = (props) => {
   const [showWaterTemp, setShowWaterTemp] = useState<boolean>(false);
   const [showWaterflow, setShowWaterflow] = useState<boolean>(false);
   const [ecData, setEcData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
-  const [phData, setPhData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
+  const [phData, setPhData] = useState<RangeDataItem[]>([{ id: 1, min: 0, max: 0 }]);
   const [humidityData, setHumidityData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
   const [waterTempData, setwaterTempData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
-  const [airTempData, setairTempData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
+  const [airTempData, setairTempData] = useState<RangeDataItem[]>([{ id: 1, min: 0, max: 0 }]);
   const [waterflowData, setWaterflowData] = useState<DataItem[]>([{ id: 1, value: 0 }]);
   const [plantName, setPlantName] = useState<string>('');
   const [typePlant, setTypePlant] = useState<string>('');
@@ -56,7 +62,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
   const [clusterId, setClusterId] = useState('');
   const [clusters, setClusters] = useState<Cluster[]>([]);
 
-  const handleAddData = (data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>, count: number = 1) => {
+  const handleAddData = (data: any[], setData: React.Dispatch<React.SetStateAction<any[]>>, count: number = 1) => {
     const newData = [...data];
     for (let i = 0; i < count; i++) {
       newData.push({ id: newData.length + 1, value: 0 });
@@ -64,23 +70,31 @@ const AddAI: React.FC<AddAiProps> = (props) => {
     setData(newData);
   };
 
-  const handleDeleteData = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
+  const handleAddRangeData = (data: RangeDataItem[], setData: React.Dispatch<React.SetStateAction<RangeDataItem[]>>, count: number = 1) => {
+    const newData = [...data];
+    for (let i = 0; i < count; i++) {
+      newData.push({ id: newData.length + 1, min: 0, max: 0 });
+    }
+    setData(newData);
+  };
+
+  const handleDeleteData = (id: number, data: any[], setData: React.Dispatch<React.SetStateAction<any[]>>) => {
     setData(data.filter(item => item.id !== id));
   };
 
-  const handleIncrement = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
-    setData(data.map(d => d.id === id ? { ...d, value: d.value + 1 } : d));
+  const handleIncrement = (id: number, data: any[], setData: React.Dispatch<React.SetStateAction<any[]>>, field: string) => {
+    setData(data.map(d => d.id === id ? { ...d, [field]: d[field] + 1 } : d));
   };
 
-  const handleDecrement = (id: number, data: DataItem[], setData: React.Dispatch<React.SetStateAction<DataItem[]>>) => {
-    setData(data.map(d => d.id === id ? { ...d, value: d.value - 1 } : d));
+  const handleDecrement = (id: number, data: any[], setData: React.Dispatch<React.SetStateAction<any[]>>, field: string) => {
+    setData(data.map(d => d.id === id ? { ...d, [field]: d[field] - 1 } : d));
   };
 
   const ecValue = ecData.length > 0 ? ecData[0].value : 0;
-  const phValue = phData.length > 0 ? phData[0].value : 0;
+  const phRange = phData.length > 0 ? { min: phData[0].min, max: phData[0].max } : { min: 0, max: 0 };
   const humidityValue = humidityData.length > 0 ? humidityData[0].value : 0;
   const waterTempValue = waterTempData.length > 0 ? waterTempData[0].value : 0;
-  const airTempValue = airTempData.length > 0 ? airTempData[0].value : 0;
+  const airTempRange = airTempData.length > 0 ? { min: airTempData[0].min, max: airTempData[0].max } : { min: 0, max: 0 };
   const waterflowValue = waterflowData.length > 0 ? waterflowData[0].value : 0;
 
   const handleSubmit = async () => {
@@ -92,6 +106,8 @@ const AddAI: React.FC<AddAiProps> = (props) => {
       dap_num: dap,
       config_ec_dap_id: uuidv4(),
       log_controller_id: uuidv4(),
+      controller_session_id: uuidv4(),
+      config_sensor_id: uuidv4(),
     };
 
     const data = {
@@ -101,11 +117,16 @@ const AddAI: React.FC<AddAiProps> = (props) => {
       config_ec_dap: configEcDap,
       is_active: false,
       cluster_id: clusterId,
+      ecData: Array.from({ length: dap }, (_, i) => ({ id: i + 1, value: 0, note: '' })),
       ec: ecValue,
-      ph: phValue,
+      ph: phRange,
+      ph_up: phRange.max,
+      ph_down: phRange.min,
       humidity: humidityValue,
       temperature_water: waterTempValue,
-      temperature_air: airTempValue,
+      temperature_air: airTempRange,
+      temperature_air_min: airTempRange.min,
+      temperature_air_max: airTempRange.max,
       water_flow: waterflowValue
     };
 
@@ -146,10 +167,10 @@ const AddAI: React.FC<AddAiProps> = (props) => {
         Array.from({ length }, (_, i) => ({ id: i + 1, value: 0 }));
 
       setEcData(initializeData(dap));
-      setPhData(initializeData(dap));
+      setPhData(initializeData(dap).map(item => ({ ...item, min: 0, max: 0 })));
       setHumidityData(initializeData(dap));
       setwaterTempData(initializeData(dap));
-      setairTempData(initializeData(dap));
+      setairTempData(initializeData(dap).map(item => ({ ...item, min: 0, max: 0 })));
       setWaterflowData(initializeData(dap));
     };
 
@@ -165,7 +186,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ plantName, typePlant, dap }),
+        body: JSON.stringify({ plantName, typePlant, dap, location }),
       });
       const data = await response.json();
 
@@ -178,23 +199,23 @@ const AddAI: React.FC<AddAiProps> = (props) => {
           Array.from({ length }, (_, i) => ({ id: i + 1, value: 0 }));
 
         setEcData(initializeData(dap));
-        setPhData(initializeData(dap));
         setHumidityData(initializeData(dap));
         setwaterTempData(initializeData(dap));
-        setairTempData(initializeData(dap));
         setWaterflowData(initializeData(dap));
 
         if (ec) {
           setEcData([{ id: 1, value: ec }]);
         }
         if (ph) {
-          setPhData([{ id: 1, value: ph }]);
+          const phData = [{ id: 1, min: ph[0], max: ph[1] }];
+          setPhData(phData);
         }
         if (humidity) {
           setHumidityData([{ id: 1, value: humidity }]);
         }
         if (temperature_air) {
-          setairTempData([{ id: 1, value: temperature_air }]);
+          const airTempData = [{ id: 1, min: temperature_air[0], max: temperature_air[1] }];
+          setairTempData(airTempData);
         }
         if (temperature_water) {
           setwaterTempData([{ id: 1, value: temperature_water }]);
@@ -202,12 +223,11 @@ const AddAI: React.FC<AddAiProps> = (props) => {
         if (water_flow) {
           setWaterflowData([{ id: 1, value: water_flow }]);
         }
-
-        setRecommendations(data.recommendations);
-      } else {
-        setErrorMessage('No recommendations found. Please try generating again.');
       }
+
+      setRecommendations(data.recommendations);
     } catch (error) {
+      setErrorMessage('No recommendations found. Please try generating again.');
       console.error('Error fetching recommendations:', error);
     } finally {
       setLoading(false);
@@ -277,7 +297,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
         <FormControl mb="3">
           <FormLabel fontSize="14px" fontWeight="bold">Location Coordinate</FormLabel>
           <Input
-            placeholder="Location Coordinate"
+            placeholder="Location Coordinate (latitude,longitude)"
             _placeholder={{ color: 'gray.500' }}
             size="sm"
             value={location}
@@ -347,8 +367,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>EC Value DAP {item.id}</Td>
                       <Td>
                         <Flex alignItems="center">
-                          <Button size="sm" onClick={() => handleDecrement(item.id, ecData, setEcData)}>-</Button>
-
+                          <Button onClick={() => handleDecrement(item.id, ecData, setEcData, 'value')} mr={2}>-</Button>
                           <Input
                             value={item.value}
                             onChange={(e) => {
@@ -358,9 +377,9 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                               }
                             }}
                             size="sm"
-                            width="40px"
+                            width="50px"
                           />
-                          <Button size="sm" onClick={() => handleIncrement(item.id, ecData, setEcData)}>+</Button>
+                          <Button onClick={() => handleIncrement(item.id, ecData, setEcData, 'value')} mr={2}>+</Button>
                         </Flex>
                       </Td>
                       <Td>
@@ -379,8 +398,8 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                 <Thead>
                   <Tr>
                     <Th>#No</Th>
-                    <Th>pH Value / DAP</Th>
-                    <Th>Setting</Th>
+                    <Th>pH Value Min / DAP</Th>
+                    <Th>pH Value Max / DAP</Th>
                     <Th>Action</Th>
                   </Tr>
                 </Thead>
@@ -388,23 +407,40 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                   {phData.map((item, index) => (
                     <Tr key={index}>
                       <Td>{item.id}</Td>
-                      <Td>pH Value DAP {item.id}</Td>
                       <Td>
                         <Flex alignItems="center">
-                          <Button size="sm" onClick={() => handleDecrement(item.id, phData, setPhData)}>-</Button>
-
+                          <Button size="sm" onClick={() => handleDecrement(item.id, phData, setPhData, 'min')} ml={2}>-</Button>
                           <Input
-                            value={item.value}
+                            value={item.min}
                             onChange={(e) => {
                               const value = parseFloat(e.target.value);
                               if (!isNaN(value)) {
-                                setPhData(phData.map(d => d.id === item.id ? { ...d, value } : d));
+                                setPhData(phData.map(d => d.id === item.id ? { ...d, min: value } : d));
                               }
                             }}
                             size="sm"
-                            width="40px"
+                            width="50px"
+                            mx={2}
                           />
-                          <Button size="sm" onClick={() => handleIncrement(item.id, phData, setPhData)}>+</Button>
+                          <Button size="sm" onClick={() => handleIncrement(item.id, phData, setPhData, 'min')}>+</Button>
+                        </Flex>
+                      </Td>
+                      <Td>
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, phData, setPhData, 'max')} ml={2}>-</Button>
+                          <Input
+                            value={item.max}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setPhData(phData.map(d => d.id === item.id ? { ...d, max: value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="50px"
+                            mx={2}
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, phData, setPhData, 'max')}>+</Button>
                         </Flex>
                       </Td>
                       <Td>
@@ -414,7 +450,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                   ))}
                 </Tbody>
               </Table>
-              <Button mt="3" colorScheme="blue" size="sm" onClick={() => handleAddData(phData, setPhData)}>Add New DAP</Button>
+              <Button mt="3" colorScheme="blue" size="sm" onClick={() => handleAddRangeData(phData, setPhData)}>Add New Dap</Button>
             </TabPanel>
           )}
           {showHumidity && (
@@ -435,7 +471,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>Humidity Value DAP {item.id}</Td>
                       <Td>
                         <Flex alignItems="center">
-                          <Button size="sm" onClick={() => handleDecrement(item.id, humidityData, setHumidityData)}>-</Button>
+                          <Button size="sm" onClick={() => handleDecrement(item.id, humidityData, setHumidityData, 'value')}>-</Button>
 
                           <Input
                             value={item.value}
@@ -446,9 +482,9 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                               }
                             }}
                             size="sm"
-                            width="40px"
+                            width="50px"
                           />
-                          <Button size="sm" onClick={() => handleIncrement(item.id, humidityData, setHumidityData)}>+</Button>
+                          <Button size="sm" onClick={() => handleIncrement(item.id, humidityData, setHumidityData, 'value')}>+</Button>
                         </Flex>
                       </Td>
                       <Td>
@@ -467,8 +503,8 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                 <Thead>
                   <Tr>
                     <Th>#No</Th>
-                    <Th>Air Temperature Value / DAP</Th>
-                    <Th>Setting</Th>
+                    <Th>Air Temp Min / DAP</Th>
+                    <Th>Air Temp Max / DAP</Th>
                     <Th>Action</Th>
                   </Tr>
                 </Thead>
@@ -476,23 +512,40 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                   {airTempData.map((item, index) => (
                     <Tr key={index}>
                       <Td>{item.id}</Td>
-                      <Td>Air Temperature Value DAP {item.id}</Td>
                       <Td>
                         <Flex alignItems="center">
-                          <Button size="sm" onClick={() => handleDecrement(item.id, airTempData, setairTempData)}>-</Button>
-
+                          <Button size="sm" onClick={() => handleDecrement(item.id, airTempData, setairTempData, 'airTempMin')} ml={2}>-</Button>
                           <Input
-                            value={item.value}
+                            value={item.min}
                             onChange={(e) => {
                               const value = parseFloat(e.target.value);
                               if (!isNaN(value)) {
-                                setairTempData(airTempData.map(d => d.id === item.id ? { ...d, value } : d));
+                                setairTempData(airTempData.map(d => d.id === item.id ? { ...d, airTempMin: value } : d));
                               }
                             }}
                             size="sm"
-                            width="40px"
+                            width="50px"
+                            mx={2}
                           />
-                          <Button size="sm" onClick={() => handleIncrement(item.id, airTempData, setairTempData)}>+</Button>
+                          <Button size="sm" onClick={() => handleIncrement(item.id, airTempData, setairTempData, 'airTempMin')}>+</Button>
+                        </Flex>
+                      </Td>
+                      <Td>
+                        <Flex alignItems="center">
+                          <Button size="sm" onClick={() => handleDecrement(item.id, airTempData, setairTempData, 'airTempMax')} ml={2}>-</Button>
+                          <Input
+                            value={item.max}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value)) {
+                                setairTempData(airTempData.map(d => d.id === item.id ? { ...d, airTempMax: value } : d));
+                              }
+                            }}
+                            size="sm"
+                            width="50px"
+                            mx={2}
+                          />
+                          <Button size="sm" onClick={() => handleIncrement(item.id, airTempData, setairTempData, 'airTempMax')}>+</Button>
                         </Flex>
                       </Td>
                       <Td>
@@ -523,7 +576,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>Water Temperature Value DAP {item.id}</Td>
                       <Td>
                         <Flex alignItems="center">
-                          <Button size="sm" onClick={() => handleDecrement(item.id, waterTempData, setwaterTempData)}>-</Button>
+                          <Button size="sm" onClick={() => handleDecrement(item.id, waterTempData, setwaterTempData, 'value')}>-</Button>
 
                           <Input
                             value={item.value}
@@ -534,9 +587,9 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                               }
                             }}
                             size="sm"
-                            width="40px"
+                            width="50px"
                           />
-                          <Button size="sm" onClick={() => handleIncrement(item.id, waterTempData, setwaterTempData)}>+</Button>
+                          <Button size="sm" onClick={() => handleIncrement(item.id, waterTempData, setwaterTempData, 'value')}>+</Button>
                         </Flex>
                       </Td>
                       <Td>
@@ -567,7 +620,7 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                       <Td>Waterflow Value DAP {item.id}</Td>
                       <Td>
                         <Flex alignItems="center">
-                          <Button size="sm" onClick={() => handleDecrement(item.id, waterflowData, setWaterflowData)}>-</Button>
+                          <Button size="sm" onClick={() => handleDecrement(item.id, waterflowData, setWaterflowData, 'value')}>-</Button>
 
                           <Input
                             value={item.value}
@@ -578,9 +631,9 @@ const AddAI: React.FC<AddAiProps> = (props) => {
                               }
                             }}
                             size="sm"
-                            width="40px"
+                            width="50px"
                           />
-                          <Button size="sm" onClick={() => handleIncrement(item.id, waterflowData, setWaterflowData)}>+</Button>
+                          <Button size="sm" onClick={() => handleIncrement(item.id, waterflowData, setWaterflowData, 'value')}>+</Button>
                         </Flex>
                       </Td>
                       <Td>
@@ -610,13 +663,14 @@ const AddAI: React.FC<AddAiProps> = (props) => {
       {errorMessage && <p>{errorMessage}</p>}
       {recommendations && (
         <div>
-          <p>EC: {recommendations.ec}</p>
-          <p>pH: {recommendations.ph}</p>
-          <p>Humidity: {recommendations.humidity}%</p>
-          <p>Air Temperature: {recommendations.temperature_air}°C</p>
-          <p>Water Temperature: {recommendations.temperature_water}°C</p>
-          <p>Waterflow: {recommendations.water_flow}</p>
-        </div>
+        <p>EC: {recommendations.ec || 0}</p>
+        <p>pH Range: {recommendations?.ph?.[0] || 0} - {recommendations?.ph?.[1] || 0}</p>
+        <p>Humidity: {recommendations.humidity || 0}%</p>
+        <p>Air Temperature Range: {recommendations?.temperature_air?.[0] || 0}°C - {recommendations?.temperature_air?.[1] || 0}°C</p>
+        <p>Water Temperature: {recommendations.temperature_water || 0}°C</p>
+        <p>Waterflow: {recommendations.water_flow || 0}</p>
+      </div>
+      
       )}
     </Box>
   );

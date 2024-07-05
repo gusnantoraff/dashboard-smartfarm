@@ -36,8 +36,12 @@ export class UserController {
     return this.userService.getUsers(pageOptionsDto, role, email);
   }
 
+  @Get('all')
+  async getAllUser(): Promise<User[]> {
+    return this.userService.findAll();
+  }
+
   @Get(':id')
-  @Roles(Role.ADMIN, Role.SUPERADMIN)
   async findOne(@Param('id') id: string): Promise<User> {
     const user = await this.userService.findOne(id);
     if (!user) {

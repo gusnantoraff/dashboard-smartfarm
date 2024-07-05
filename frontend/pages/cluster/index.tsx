@@ -10,6 +10,7 @@ import DeleteButton from '@/components/DeleteButton';
 import { useRouter } from 'next/router';
 import { User } from '@/hooks/useUser';
 import Cookies from 'js-cookie';
+import moment from 'moment-timezone';
 
 interface Cluster {
   cluster_id: string;
@@ -77,7 +78,7 @@ const ClusterPage = () => {
         params: {
           page: pagination.page,
           take: pagination.take,
-        },
+        }
       });
   
       const { data, meta } = response.data;
@@ -106,6 +107,19 @@ const ClusterPage = () => {
         ...formData,
         owner: currentUser?.name 
       });
+
+      await axios.post(`http://localhost:4000/memberships/`, {
+        cluster_id: response.data.cluster_id,
+        user_id: currentUser?.user_id,
+        is_owner: true,
+        is_first_owner: true,
+        is_active: true,
+        invited_by: '',
+        invited_at: new Date(moment().tz('Asia/Jakarta').format('YYYY-MM-DD HH:mm:ss')),
+        status: 'active',
+      });
+
+      console.log('form',formData);
       setClusters([...clusters, response.data]);
       toggleModal();
     } catch (error) {

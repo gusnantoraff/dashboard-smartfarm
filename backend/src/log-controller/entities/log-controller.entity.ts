@@ -33,14 +33,14 @@ import { ControllerSession } from "src/controller-session/entities/controller-se
   @Column({ type: 'float'})
   ec: number;
 
-  @Column({ type: 'float'})
-  ph: number;
+  @Column({ type: 'jsonb'})
+  ph: number[];
 
   @Column({ type: 'float'})
   water_flow: number;
 
-  @Column()
-  temperature_air: number;
+  @Column({ type: 'jsonb'})
+  temperature_air: number[];
 
   @Column()
   dap_num: number;

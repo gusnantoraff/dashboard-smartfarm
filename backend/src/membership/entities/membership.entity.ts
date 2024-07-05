@@ -27,7 +27,7 @@ export class Membership {
   @Column()
   is_active: boolean;
 
-  @Column()
+  @Column({nullable: true})
   invited_by: string;
 
   @Column()

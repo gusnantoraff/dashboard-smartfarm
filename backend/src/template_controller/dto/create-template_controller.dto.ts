@@ -20,12 +20,16 @@ export class CreateTemplateDto {
   @IsNotEmpty()
   is_active: boolean;
 
-  dap_first_time: Date;
   temperature_water: number;
   humidity: number;
   ec: number;
-  ph: number;
+  ph_up: number;
+  ph_down: number;
   water_flow: number;
-  temperature_air: number;
+  temperature_air_min: number;
+  temperature_air_max: number;
   dap_num: number;
+  ph: number[];
+  temperature_air: number[];
+  ecData: any;
 }

@@ -9,10 +9,10 @@ import { PageDto } from 'src/dto/page.dto';
 
 @Controller('clusters')
 export class ClusterController {
-  constructor(private readonly clusterService: ClusterService) {}
+  constructor(private readonly clusterService: ClusterService) { }
 
   @Post()
-  async create(@Body() createClusterDto: CreateClusterDto): Promise<Cluster> {
+  async createCluster(@Body() createClusterDto: CreateClusterDto) {
     return this.clusterService.create(createClusterDto);
   }
 
@@ -45,7 +45,7 @@ export class ClusterController {
   }
 
   @Delete()
-  deleteAll(){
+  deleteAll() {
     return this.clusterService.deleteAll();
   }
 }

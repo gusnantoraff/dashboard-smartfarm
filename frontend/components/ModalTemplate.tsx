@@ -1,117 +1,129 @@
-import React, { useState, useContext, createContext } from 'react';
 import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  Text,
-  Flex,
+  Box,
   Button,
-  Input,
-  useToast,
+  Flex,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Text,
+  useToast
 } from '@chakra-ui/react';
+import { Form, Formik } from 'formik';
 import Image from 'next/image';
-import { Formik, Form, Field } from 'formik';
-import { useMutationTemplate, Template } from '@/hooks/useTemplate';
+import React, { useState, createContext, useContext } from 'react';
+import FormItem from './FormItem';
+import { useMutationTemplate } from '@/hooks/useTemplate';
 
-type ModalTemplateProps = {
-  close: () => void;
-  open: boolean;
-  title: string;
-  subtitle?: string;
-  template?: boolean;
-  onEdit: (isEditing: boolean) => void;
-  initialVal: {
-    id: string;
-    name: string;
-    dap: number;
-  };
-  children: React.ReactNode;
-};
-
-type DataProps = {
-  label: string;
-  value: string | number;
-  editable?: boolean;
-  gray?: boolean;
-  name: string;
-};
-
-const EditContext = createContext<{
+type EditContextType = {
   isEdit: boolean;
-  setIsEdit: React.Dispatch<React.SetStateAction<boolean>>;
-}>({ isEdit: false, setIsEdit: () => {} });
+  setIsEdit?: (value: boolean) => void;
+};
 
-export const Data: React.FC<DataProps> = ({
+const EditContext = createContext<EditContextType>({
+  isEdit: false,
+  setIsEdit: () => {},
+});
+
+type Props = {
+  children: React.ReactNode;
+  title: string;
+  subtitle: string;
+  onEdit: (isEditing: boolean) => void;
+  initialVal?: any;
+  open: boolean;
+  close: () => void;
+  ecData: Array<{ id: number; value: number; note: string }>;
+};
+
+function Border() {
+  return <Box borderBottom={'1px'} borderBottomColor={'#C4C4C480'} my='24px' />;
+}
+
+function Data({
   label,
-  value,
-  editable = false,
-  gray,
   name,
-}) => {
+  value,
+  gray,
+  editable = false,
+  type = 'text',
+}: {
+  label: string;
+  name?: string;
+  value: string | number;
+  gray?: boolean;
+  editable?: boolean;
+  type?: 'text' | 'password' | 'email' | 'number' | 'tel' | 'url' | 'datetime-local' | 'time';
+}) {
   const { isEdit } = useContext(EditContext);
 
   return (
-    <Flex
+    <Box
       px='16px'
       py='11px'
-      bg={gray ? '#FAFAFA' : '#FFFFFF'}
-      justifyContent='space-between'
-      alignItems='center'
-      borderBottom='1px'
-      borderBottomColor='#C4C4C480'
+      display={'flex'}
+      backgroundColor={gray ? '#FAFAFA' : '#FFFFFF'}
+      justifyContent={'space-between'}
     >
-      <Text fontSize='14px' fontWeight={500} color='black'>
+      <Text fontSize={'14px'} color={'black'} fontWeight={500}>
         {label}
       </Text>
       {isEdit && editable ? (
-        <Field name={name}>
-          {({ field }: any) => (
-            <Input {...field} size='sm' width='120px' />
-          )}
-        </Field>
+        <FormItem.InputInline
+          name={name ?? label}
+          placeholder={label}
+          type={type}
+        />
       ) : (
-        <Text fontSize='14px' fontWeight={500} color='black'>
+        <Text fontSize={'14px'} color={'black'} fontWeight={500}>
           {value}
         </Text>
       )}
-    </Flex>
+    </Box>
   );
-};
+}
 
-const ModalTemplate: React.FC<ModalTemplateProps> & {
-  Data: React.FC<DataProps>;
-} = ({
-  close,
-  open,
+function ModalTemplate({
+  children,
   title,
   subtitle,
   onEdit,
-  template = false,
   initialVal,
-  children,
-}) => {
+  open,
+  close,
+  ecData
+}: Props) {
   const toast = useToast();
+  const [isEdit, setIsEdit] = useState(false);
   const updateTemplate = useMutationTemplate();
   const [loadingTemplate, setLoadingTemplate] = useState(false);
-  const [isEdit, setIsEdit] = useState(false);
+  const [errorPopup, setErrorPopup] = useState(false);
+
 
   const validateValue = (values: any) => {
     const errors: any = {};
+
     for (const key in values) {
       if (!values[key]) {
         errors[key] = 'Required';
       }
     }
+
     return errors;
   };
 
-  const editTemplate = async (values: Template) => {
+  const editTemplate = async (values: any, ecData: Array<{ id: number; value: number; note: string }>) => {
     try {
+      console.log('Updating template with values:', values);
       setLoadingTemplate(true);
-      const { id, name, dap_count } = values;
-      await updateTemplate(id, { name, dap_count });
+
+    const { id, name, dap_count } = values;
+    const templateData = { name, dap_count, ecData };
+
+      await updateTemplate(id, templateData);
       toast({
         title: 'Template Updated',
         description: 'Template has been updated successfully.',
@@ -119,59 +131,48 @@ const ModalTemplate: React.FC<ModalTemplateProps> & {
         duration: 5000,
         isClosable: true,
       });
+      setIsEdit(false);
     } catch (error) {
-      console.error('Error updating template:', error);
-      toast({
-        title: 'Error',
-        description: 'An error occurred while updating the template.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
+      setErrorPopup(true);
     } finally {
       setLoadingTemplate(false);
     }
   };
 
   const onSubmit = async (values: any) => {
-    console.log('Form submitted', values);
-    if (template) {
-      await editTemplate(values);
-    }
+    await editTemplate(values, ecData);
   };
 
   return (
-    <EditContext.Provider value={{ isEdit, setIsEdit }}>
+    <EditContext.Provider value={{ isEdit }}>
       <Modal isOpen={open} onClose={close}>
         <ModalOverlay />
         <ModalContent p='40px' minW='640px'>
           <ModalHeader
-            display='flex'
-            justifyContent='space-between'
-            alignItems='center'
+            display={'flex'}
+            justifyContent={'space-between'}
+            alignItems={'center'}
             px='0'
             pt='0'
-            pb='24px'
-            mb='24px'
-            borderBottom='1px'
-            borderBottomColor='#C4C4C480'
+            pb={'24px'}
+            mb={'24px'}
+            borderBottom={'1px'}
+            borderBottomColor={'#C4C4C480'}
           >
-            <Flex direction='column'>
-              <Text fontSize='20px' color='primary' fontWeight={600}>
+            <Box>
+              <Text fontSize={'20px'} color={'primary'} fontWeight={600}>
                 {title}
               </Text>
-              {subtitle && (
-                <Text fontSize='14px' color='text.02' fontWeight={500}>
-                  {subtitle}
-                </Text>
-              )}
-            </Flex>
+              <Text fontSize={'14px'} color={'text.02'} fontWeight={500}>
+                {subtitle}
+              </Text>
+            </Box>
             <Image
+              onClick={close}
               src='/icons/modal_close.svg'
               width={32}
               height={32}
               alt='close'
-              onClick={close}
               className='cursor-pointer bg-transparent hover:bg-slate-100 transition-all duration-100 ease-in-out rounded-full'
             />
           </ModalHeader>
@@ -184,62 +185,79 @@ const ModalTemplate: React.FC<ModalTemplateProps> & {
             >
               <Form>
                 {children}
-                <Flex gap='8px' mt='24px'>
-                  {isEdit ? (
-                    <>
-                      <Button
-                        isLoading={loadingTemplate}
-                        type='submit'
-                        variant='solid'
-                        bg={'secondary'}
-                        w={'80%'}
-                        color='white'
-                        _hover={{ bg: 'secondary_hover' }}
-                        fontSize={'14px'}
-                        fontWeight={600}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setIsEdit(false);
-                          onEdit(false);
-                        }}
-                        variant='solid'
-                        colorScheme='gray'
-                        w={'20%'}
-                        fontSize={'14px'}
-                        fontWeight={600}
-                      >
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
+                <ModalTemplate.Border />
+                {isEdit ? (
+                  <Flex gap='8px'>
                     <Button
+                      isLoading={loadingTemplate}
                       onClick={() => {
-                        setIsEdit(true);
-                        onEdit(true);
+                          onEdit(false);
                       }}
-                      variant='outline'
-                      color={'primary'}
-                      borderColor={'primary'}
+                      type='submit'
+                      variant='solid'
+                      bg={'secondary'}
+                      w={'80%'}
+                      color='white'
+                      _hover={{ bg: 'secondary_hover' }}
                       fontSize={'14px'}
                       fontWeight={600}
-                      w='full'
                     >
-                      Edit Data
+                      Save
                     </Button>
-                  )}
-                </Flex>
+                    <Button
+                      onClick={() => {
+                        setIsEdit(false);
+                        onEdit(false);
+                      }}
+                      variant='solid'
+                      colorScheme='gray'
+                      w={'20%'}
+                      fontSize={'14px'}
+                      fontWeight={600}
+                    >
+                      Cancel
+                    </Button>
+                  </Flex>
+                ) : (
+                  <Button
+                  onClick={() => {
+                    setIsEdit(true);
+                    onEdit(true);
+                  }}
+                    variant='outline'
+                    color={'primary'}
+                    borderColor={'primary'}
+                    fontSize={'14px'}
+                    fontWeight={600}
+                    w='full'
+                  >
+                    Edit Data
+                  </Button>
+                )}
               </Form>
             </Formik>
           </ModalBody>
         </ModalContent>
       </Modal>
+
+      <Modal isOpen={errorPopup} onClose={() => setErrorPopup(false)}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Error</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            You do not have permission to perform this action.
+          </ModalBody>
+          <ModalFooter>
+            <Button onClick={() => setErrorPopup(false)}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </EditContext.Provider>
   );
-};
+}
 
+ModalTemplate.Border = Border;
 ModalTemplate.Data = Data;
 
 export default ModalTemplate;

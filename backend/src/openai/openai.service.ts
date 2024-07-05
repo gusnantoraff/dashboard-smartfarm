@@ -6,9 +6,9 @@ dotenv.config();
 
 export interface Recommendations {
   ec: number | null;
-  ph: number | null;
+  ph: number[] | null;
   humidity: number | null;
-  temperature_air: number | null;
+  temperature_air: number[] | null;
   temperature_water: number | null;
   water_flow: number | null;
 }
@@ -29,7 +29,7 @@ export class OpenAiService {
           },
           {
             role: 'user',
-            content: `Please provide specific (no range) and unchanging data EC per day (dS/m), pH, humidity, air temperature, water temperature, and waterflow (liter/m) for a plant with the following details:
+            content: `Please provide specific and unchanging data EC per day (dS/m), pH, humidity, air temperature, water temperature, and waterflow (liter/m) for a plant with the following details:
                         \n\nPlant Name: ${plantName},
                         \nType of Plant: ${typePlant},
                         \nDAP (Days After Plant) : ${dap},
@@ -61,25 +61,25 @@ export class OpenAiService {
       temperature_water: null,
       water_flow: null,
     };
-
+  
     const ecMatch = recommendationsText.match(/EC.*?:.*?(\d+(\.\d+)?)(\s*dS\/m)/i);
-    const phMatch = recommendationsText.match(/pH.*?:.*?(\d+(\.\d+)?)/i);
+    const phMatch = recommendationsText.match(/pH.*?:.*?(\d+(\.\d+)?).*?(\d+(\.\d+)?)/i);
     const humidityMatch = recommendationsText.match(/humidity.*?:.*?(\d+(\.\d+)?%)/i);
-    const airTempMatch = recommendationsText.match(/air temperature.*?:.*?(\d+(\.\d+)?(°C|degrees Celsius))/i);
+    const airTempMatch = recommendationsText.match(/air temperature.*?:.*?(\d+(\.\d+)?(°C|degrees Celsius)).*?(\d+(\.\d+)?(°C|degrees Celsius))/i);
     const waterTempMatch = recommendationsText.match(/water temperature.*?:.*?(\d+(\.\d+)?(°C|degrees Celsius))/i);
     const waterflowMatch = recommendationsText.match(/waterflow.*?:.*?(\d+(\.\d+)?)/i);
-
+  
     if (ecMatch) {
       recommendations.ec = parseFloat(ecMatch[1]);
     }
     if (phMatch) {
-      recommendations.ph = parseFloat(phMatch[1]);
+      recommendations.ph = [parseFloat(phMatch[1]), parseFloat(phMatch[3])];
     }
     if (humidityMatch) {
       recommendations.humidity = parseFloat(humidityMatch[1].replace('%', ''));
     }
     if (airTempMatch) {
-      recommendations.temperature_air = parseFloat(airTempMatch[1].replace('°C', '').replace('degrees Celsius', ''));
+      recommendations.temperature_air = [parseFloat(airTempMatch[1].replace('°C', '').replace('degrees Celsius', '')), parseFloat(airTempMatch[4].replace('°C', '').replace('degrees Celsius', ''))];
     }
     if (waterTempMatch) {
       recommendations.temperature_water = parseFloat(waterTempMatch[1].replace('°C', '').replace('degrees Celsius', ''));
@@ -87,7 +87,7 @@ export class OpenAiService {
     if (waterflowMatch) {
       recommendations.water_flow = parseFloat(waterflowMatch[1]);
     }
-
+  
     return recommendations as Recommendations;
   }
 }

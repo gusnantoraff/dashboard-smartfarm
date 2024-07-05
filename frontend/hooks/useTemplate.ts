@@ -1,11 +1,15 @@
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useToast } from '@chakra-ui/react';
+import { Controller } from './useController';
 
 export interface Template {
-  id: string;
+  template_id: string;
   name: string;
   dap_count: number;
+  ecData: any;
+  controllerCount: number;
+  controllers: Controller[];
 }
 
 export interface TemplateResponse {
@@ -41,20 +45,21 @@ export interface ListTemplateInput {
   };
 }
 
-export function useQueryTemplate<T extends keyof TemplateResponse>(
-  method: T,
+export function useQueryTemplate(
+  templateId: string | null,
   config?: any,
 ) {
   const toast = useToast();
-  const [data, setData] = useState<TemplateResponse[T] | null>(null);
+  const [data, setData] = useState<Template | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!templateId) return;
       try {
         setLoading(true);
-        const response = await axios.get(`http://localhost:4000/templates/${method}`, {
+        const response = await axios.get(`http://localhost:4000/templates/${templateId}`, {
           params: config?.params || {},
         });
         setData(response.data);
@@ -80,7 +85,7 @@ export function useQueryTemplate<T extends keyof TemplateResponse>(
       setLoading(false);
       setError(null);
     };
-  }, [method, config, toast]);
+  }, [templateId, config, toast]);
 
   return { data, loading, error };
 }

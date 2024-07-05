@@ -2,6 +2,7 @@ import { Time } from './TimeType';
 import React from 'react';
 import { Dictionary } from './DictionaryType';
 import { Location } from './location.type';
+import { User } from '@/hooks/useUser';
 
 export interface DetailController extends Time {
   controller_id: string;
@@ -68,13 +69,14 @@ export type PaginationInput = {
 
 export interface Memberships extends Time {
   membership_id: string;
-  isActive: boolean;
-  userId: string;
-  clusterId: string;
-  isOwner: boolean;
-  isFirstOwner: boolean;
-  invitedBy: string;
-  clusters: Cluster;
+  is_active: boolean;
+  user_id: string;
+  cluster_id: string;
+  is_owner: boolean;
+  is_first_owner: boolean;
+  invited_by: string;
+  cluster: Cluster;
+  users: User;
 }
 
 export interface Cluster extends Time {

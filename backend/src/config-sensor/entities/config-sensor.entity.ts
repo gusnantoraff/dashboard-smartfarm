@@ -11,19 +11,19 @@ export class ConfigSensor {
   @JoinColumn({ name: 'controller_id' })
   controllers: Controller;
 
-  @Column()
+  @Column({ type: 'float', nullable: true})
   ph_up: number;
 
   @Column()
   humidity: number;
 
-  @Column()
+  @Column({ type: 'float', nullable: true})
   ec: number;
 
-  @Column()
+  @Column({ type: 'float', nullable: true})
   ph_down: number;
 
-  @Column()
+  @Column({ type: 'float', nullable: true})
   water_flow: number;
 
   @Column()
@@ -32,13 +32,13 @@ export class ConfigSensor {
   @Column()
   temperature_air_max: number;
 
-  @Column()
+  @Column({nullable: true})
   peristaltic_pump_duration: number;
 
-  @Column()
+  @Column({nullable: true})
   peristaltic_pump_period: number;
 
-  @Column()
+  @Column({nullable: true})
   ec_mode: string;
 
   @CreateDateColumn({ type: 'timestamp', nullable: true })

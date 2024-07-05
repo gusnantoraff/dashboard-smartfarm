@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Box, Skeleton, Tab, TabList, Tabs, Text, useToast } from '@chakra-ui/react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Box, Button, Skeleton, Tab, TabList, Tabs, Text, useToast } from '@chakra-ui/react';
 import Select from '@/components/Select';
 import { parseToOption } from '@/utils/parseToOptions';
 import DetailItem from '@/components/Detailitem';
@@ -14,6 +14,10 @@ import HumidityChart from './HumidityChart';
 import EcChart from './EcChart';
 import PhChart from './PhChart';
 import axios from 'axios';
+import Cookies from 'js-cookie';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable'
 
 type Columns = {
   name: string;
@@ -57,6 +61,8 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
 
   const [selectedControllerId, setSelectedControllerId] = useState<string | null>(null);
 
+  const chartRef = useRef<HTMLDivElement>(null);
+
   const fetchCluster = async () => {
     if (clusterId) {
       setLoading(true);
@@ -78,6 +84,10 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
       try {
         const controllerResponse = await axios.get(`http://localhost:4000/controllers/${selectedControllerId}`);
         setController(controllerResponse.data);
+        const cookiePayload = Cookies.get(`mqttPayload_${controllerResponse.data.name}`);
+        if (cookiePayload) {
+          setPayload(JSON.parse(cookiePayload));
+        }
       } catch (error) {
         console.error('Error fetching controller data:', error);
         setError(true);
@@ -97,21 +107,20 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
   useEffect(() => {
     if (mqtt && controllers?.name) {
       const controllerName = controllers.name;
-      const messageHandler = (_: any, message: { toString: () => string; }) => {
+      mqtt.on('message', (_, message) => {
         const mqttPayload: MqttPayloadType = JSON.parse(message.toString());
         if (
           mqttPayload.from === controllerName &&
           mqttPayload.action_type === 'log_controller'
         ) {
+          const expirationTime = new Date(new Date().getTime() + 30 * 60 * 1000);
+          Cookies.set(`mqttPayload_${controllers?.name}`, JSON.stringify(mqttPayload), { expires: expirationTime, path: '/' });
           setPayload(mqttPayload);
         }
-      };
-      mqtt.on('message', messageHandler);
-      return () => {
-        mqtt.off('message', messageHandler);
-      };
+      });
     }
   }, [mqtt, controllers, clusters]);
+
   console.log('mqtt', payload);
   
 
@@ -119,13 +128,13 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
     const tempColumns: Columns[] = [
       {
         name: 'Name',
-        selector: (row) =>
+        selector: () =>
           controllers?.name.split('/')?.[1] ||
           controllers?.name,
       },
       {
         name: 'Date',
-        selector: (row) => row.date,
+        selector: (row) => row.date_now,
       },
       {
         name: 'Upper Limit',
@@ -142,11 +151,11 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
         tempColumns.push(
           {
             name: 'Water Temperature',
-            selector: (row) => row.waterTemperature,
+            selector: (row) => row.temperature_water,
           },
           {
             name: 'Air Temperature',
-            selector: (row) => row.airTemperature,
+            selector: (row) => row.temperature_air,
           }
         );
         break;
@@ -179,19 +188,6 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
 
     return tempColumns;
   }, [tabIdx, controllers]);
-
-  const dummyData = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => ({
-      id: i,
-      name: 'Controller 1',
-      date: dayjs().add(i, 'day').format('DD/MM/YYYY'),
-      upperLimit: Math.floor(Math.random() * 100) + 1,
-      lowerLimit: Math.floor(Math.random() * 100) + 1,
-      waterTemperature: Math.floor(Math.random() * 100) + 1,
-      airTemperature: Math.floor(Math.random() * 100) + 1,
-      status: 'Dummy data',
-    }));
-  }, [controllers]);
 
   const getChartByIdx = (idx: number) => {
     switch (idx) {
@@ -247,12 +243,47 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
     }
   }, [loading, error, toast]);
 
+  const handlePrint = async () => {
+    if (!chartRef.current) return;
+  
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    pdf.setFont('helvetica');
+    pdf.setFontSize(14);
+    pdf.text('Report', 10, 10);
+  
+    if (payload) {
+      const tableData = [
+        ['Date', payload.date_now],
+        ['Air Temperature', payload.temperature_air],
+        ['Water Temperature', payload.temperature_water],
+        ['Humidity', payload.humidity],
+        ['EC', payload.ec],
+        ['pH', payload.ph]
+      ];
+  
+      autoTable(pdf, {
+        head: [['Field', 'Value']],
+        body: tableData
+      });
+    }
+  
+    const canvas = await html2canvas(chartRef.current);
+    const imgData = canvas.toDataURL('image/png');
+    const imgWidth = 190;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  
+    pdf.addImage(imgData, 'PNG', 10, 80, imgWidth, imgHeight);
+    pdf.save('report.pdf');
+  };
+  
+
+
   if (loading) {
     return <Skeleton w="100%" h="520px" />;
   }
 
   return (
-    <div className='p-4'>
+    <div className='p-4' ref={chartRef}>
       <div className='border border-[#C4C4C4] rounded-lg'>
         <div className='border-b border-b-[#C4C4C4]'>
           <Tabs isLazy index={tabIdx}>
@@ -451,7 +482,11 @@ export default function ChartCard({ clusterId, pagination, onPageChange }: Props
             <Datepicker bg='other.02' h='40px' w='266px' />
           </div>
 
-          <Table data={dummyData} columns={columns} pagination={pagination} onPageChange={onPageChange} />
+          <Button colorScheme='teal' size='sm' onClick={handlePrint} mb={4}>
+            Print Report
+          </Button>
+
+          <Table data={payload ? [payload] : []} columns={columns} pagination={pagination} onPageChange={onPageChange} />
         </div>
       </div>
     </div>

@@ -35,6 +35,6 @@ export class ConfigEcDapService {
   }
 
   async deleteAll(): Promise<void> {
-    await this.configEcDapRepository.clear();
+    await this.configEcDapRepository.createQueryBuilder().delete().execute();
   }
 }
