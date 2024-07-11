@@ -1,4 +1,4 @@
-# Project OSI Dashboard SmartFarm (ongoing)
+# Project OSI Dashboard SmartFarm
 `` Oemah Solution Indonesia (OSI) Dashboard SmartFarm ``
 
 ![](images/dashboard.png)
