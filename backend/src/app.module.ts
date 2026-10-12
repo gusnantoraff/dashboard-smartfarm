@@ -28,16 +28,14 @@ import { ControllerSessionModule } from './controller-session/controller-session
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         type: 'postgres',
-        host: configService.get('DB_HOST'),
-        port: +configService.get('DB_PORT'),
-        username: configService.get('DB_USERNAME'),
-        password: configService.get('DB_PASSWORD'),
-        database: configService.get('DB_NAME'),
+        url: configService.get<string>('DATABASE_URL'), // Membaca langsung dari 1 string DATABASE_URL
         entities: [join(process.cwd(), 'dist/**/*.entity.js')],
-        synchronize: true
+        synchronize: true, // Otomatis membuat/memperbarui tabel
+        ssl: {
+          rejectUnauthorized: false, // Wajib untuk SSL Neon.tech
+        },
       }),
     }),
-    OpenaiModule,
     ClusterModule,
     UserModule,
     AuthModule,
